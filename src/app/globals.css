@@ -1,42 +1,15 @@
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+.btn-primary{
+    border-color: navy;
+    background-color: #3b3b6d;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+.btn-primary:hover{
+    border-color: navy;
+    background-color: navy;
+};
 
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+.message{
+    color: gray;
+    margin-left: 10px;
+    margin-top: 10px;
 }
