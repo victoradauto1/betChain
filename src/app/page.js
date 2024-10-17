@@ -2,6 +2,7 @@
 import Footer from "@/componets/Footer";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { doLogin } from "@/services/web3Services";
 
 export default function Home() {
 
@@ -13,7 +14,19 @@ export default function Home() {
   }, []);
 
   function btnLoginClick(){
-    push("/bet")
+
+    setMessage("Conectando na carteira... agurade...")
+    doLogin()
+      .then(wallet=>{
+        setMessage(`Carteira ${wallet} conectada.`);
+        push("/bet")
+      })
+      .catch(err =>{
+        console.error(err);
+        setMessage(err.message);
+        push("/");
+      })
+      
   };
 
   return (
