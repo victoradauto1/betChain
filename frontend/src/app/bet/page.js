@@ -20,7 +20,7 @@ export default function Bet() {
   });
 
   useEffect(() => {
-    document.title = "BetCandidate | Beting";
+    document.title = "BetChain | Beting";
   });
 
   useEffect(() => {
@@ -72,7 +72,7 @@ export default function Bet() {
     <div className="container px-4 py-5">
       <div className="row align-items-center">
         <h1 className="display-5 fw-bold text-body-emphasis lh-1 mb-3">
-          BetCandidate
+          BetChain
         </h1>
         <p className="lead">Apostas on-chain nas eleições americanas.</p>
         {dispute.winner == 0 ? (
