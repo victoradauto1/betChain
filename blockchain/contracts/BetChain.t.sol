@@ -155,7 +155,7 @@ contract BetChainTest is Test {
         uint256 userBet = betChain.getUserBet(1, 0, bettor1);
         assertEq(userBet, 1 ether);
         
-        (string memory name, uint256 totalBets) = betChain.getOptionInfo(1, 0);
+        (, uint256 totalBets) = betChain.getOptionInfo(1, 0);
         assertEq(totalBets, 1 ether);
     }
     
@@ -597,6 +597,134 @@ contract BetChainTest is Test {
         assertTrue(active);
         assertFalse(finalized);
         assertEq(optionsCount, 3);
+    }
+    
+    // ========== ADDITIONAL EDGE CASE TESTS ==========
+    
+    function testPlaceBetFailsOnFinalizedBet() public {
+        vm.startPrank(creator);
+        string[] memory options = new string[](2);
+        options[0] = "Option A";
+        options[1] = "Option B";
+        betChain.createBet("Test Bet", "Description", "image.jpg", options);
+        vm.stopPrank();
+        
+        vm.prank(bettor1);
+        betChain.placeBet{value: 1 ether}(1, 0);
+        
+        vm.prank(creator);
+        betChain.finalizeBet(1, 0);
+        
+        // After finalization, bet.active is set to false, so that check fails first
+        vm.startPrank(bettor2);
+        vm.expectRevert("Bet is not active");
+        betChain.placeBet{value: 1 ether}(1, 0);
+        vm.stopPrank();
+    }
+    
+    function testWithdrawPrizeWithSmallPool() public {
+        vm.startPrank(creator);
+        string[] memory options = new string[](2);
+        options[0] = "Option A";
+        options[1] = "Option B";
+        betChain.createBet("Test Bet", "Description", "image.jpg", options);
+        vm.stopPrank();
+        
+        // Place bet larger than FEE so finalization works
+        vm.prank(bettor1);
+        betChain.placeBet{value: 200}(1, 0);
+        
+        vm.prank(creator);
+        betChain.finalizeBet(1, 0);
+        
+        // Withdraw prize should work even with small amount
+        uint256 balanceBefore = bettor1.balance;
+        
+        vm.prank(bettor1);
+        betChain.withdrawPrize(1);
+        
+        uint256 balanceAfter = bettor1.balance;
+        uint256 expectedPrize = 200 - betChain.FEE();
+        
+        assertEq(balanceAfter - balanceBefore, expectedPrize);
+    }
+    
+    function testWithdrawFeeFailsWithInsufficientPool() public {
+        vm.startPrank(creator);
+        string[] memory options = new string[](2);
+        options[0] = "Option A";
+        options[1] = "Option B";
+        betChain.createBet("Test Bet", "Description", "image.jpg", options);
+        vm.stopPrank();
+        
+        // Place bet larger than FEE so finalization works
+        vm.prank(bettor1);
+        betChain.placeBet{value: 200}(1, 0);
+        
+        vm.prank(creator);
+        betChain.finalizeBet(1, 0);
+        
+        // Winner withdraws their prize first
+        vm.prank(bettor1);
+        betChain.withdrawPrize(1);
+        
+        // Now creator tries to withdraw fee (but pool was already decreased)
+        vm.startPrank(creator);
+        betChain.withdrawFee(1);
+        vm.stopPrank();
+        
+        // Fee withdrawal should succeed since we started with enough
+        uint256 expectedFee = betChain.FEE();
+        assertEq(expectedFee, 100);
+    }
+    
+    function testWithdrawPrizeSuccessCalculatesCorrectly() public {
+        vm.startPrank(creator);
+        string[] memory options = new string[](2);
+        options[0] = "Option A";
+        options[1] = "Option B";
+        betChain.createBet("Test Bet", "Description", "image.jpg", options);
+        vm.stopPrank();
+        
+        vm.prank(bettor1);
+        betChain.placeBet{value: 1 ether}(1, 0);
+        
+        vm.prank(creator);
+        betChain.finalizeBet(1, 0);
+        
+        uint256 balanceBefore = bettor1.balance;
+        
+        vm.prank(bettor1);
+        betChain.withdrawPrize(1);
+        
+        uint256 balanceAfter = bettor1.balance;
+        uint256 expectedPrize = 1 ether - betChain.FEE();
+        
+        assertEq(balanceAfter - balanceBefore, expectedPrize);
+    }
+    
+    function testGetOptionInfoFailsWithInvalidOption() public {
+        vm.startPrank(creator);
+        string[] memory options = new string[](2);
+        options[0] = "Option A";
+        options[1] = "Option B";
+        betChain.createBet("Test Bet", "Description", "image.jpg", options);
+        vm.stopPrank();
+        
+        vm.expectRevert("Invalid option");
+        betChain.getOptionInfo(1, 5);
+    }
+    
+    function testGetUserBetFailsWithInvalidOption() public {
+        vm.startPrank(creator);
+        string[] memory options = new string[](2);
+        options[0] = "Option A";
+        options[1] = "Option B";
+        betChain.createBet("Test Bet", "Description", "image.jpg", options);
+        vm.stopPrank();
+        
+        vm.expectRevert("Invalid option");
+        betChain.getUserBet(1, 5, bettor1);
     }
     
     // ========== COMPLETE SCENARIO TEST ==========

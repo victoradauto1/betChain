@@ -1,6 +1,7 @@
 import type { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-coverage";
-
+import "@nomicfoundation/hardhat-ethers";
+import "@nomicfoundation/hardhat-toolbox-mocha-ethers";
 
 
 import hardhatToolboxMochaEthersPlugin from "@nomicfoundation/hardhat-toolbox-mocha-ethers";
