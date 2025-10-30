@@ -324,7 +324,8 @@ contract BetChainTest is Test {
         vm.startPrank(creator);
         betChain.finalizeBet(1, 0);
         
-        vm.expectRevert("Bet already finalized");
+        // After finalization, bet is not active, so this error comes first
+        vm.expectRevert("Bet is not active");
         betChain.finalizeBet(1, 0);
         vm.stopPrank();
     }
@@ -406,9 +407,10 @@ contract BetChainTest is Test {
         uint256 prizeBettor1 = bettor1.balance - balanceBettor1Before;
         uint256 prizeBettor2 = bettor2.balance - balanceBettor2Before;
         
-        // Bettor1 bet 2/3 of winning pool, should receive 2/3 of prize
-        // Bettor2 bet 1/3 of winning pool, should receive 1/3 of prize
-        assertEq(prizeBettor1, (prizeBettor2 * 2));
+        // Bettor1 bet 2/3 of winning pool, should receive approximately 2/3 of prize
+        // Bettor2 bet 1/3 of winning pool, should receive approximately 1/3 of prize
+        // Using assertApproxEqAbs to account for rounding in Solidity division
+        assertApproxEqAbs(prizeBettor1, (prizeBettor2 * 2), 1);
     }
     
     function testWithdrawPrizeFailsIfNotFinalized() public {
