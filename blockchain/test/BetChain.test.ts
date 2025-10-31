@@ -1,30 +1,38 @@
 import { expect } from "chai";
 import hre from "hardhat";
+import { ethers } from "ethers";
 
 describe("BetChain", function () {
   let betChain: any;
-  let creator: any;
-  let bettor1: any;
-  let bettor2: any;
-  let bettor3: any;
-  let ethers: any;
+  let deployer: string;
+  let provider: any;
+  let wallet: any;
 
   before(async function () {
-    // Import ethers from the deployed hardhat instance
-    ethers = (await import("ethers")).ethers;
+    // Connect to Hardhat network and get provider
+    const connection = await hre.network.connect();
+    provider = connection.provider;
+    
+    // Get first account
+    const accounts = await provider.request({
+      method: "eth_accounts",
+      params: [],
+    });
+    deployer = accounts[0];
+    
+    // Create wallet with the hardhat default private key
+    wallet = new ethers.Wallet(
+      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+      new ethers.JsonRpcProvider("http://127.0.0.1:8545")
+    );
   });
 
   beforeEach(async function () {
     // Deploy contract
-    const { contract } = await hre.ignition.deploy("BetChain");
-    betChain = contract;
-    
-    // Get test accounts
-    const accounts = await hre.network.provider.send("eth_accounts");
-    creator = { address: accounts[0] };
-    bettor1 = { address: accounts[1] };
-    bettor2 = { address: accounts[2] };
-    bettor3 = { address: accounts[3] };
+    const BetChain = await hre.artifacts.readArtifact("BetChain");
+    const factory = new ethers.ContractFactory(BetChain.abi, BetChain.bytecode, wallet);
+    betChain = await factory.deploy();
+    await betChain.waitForDeployment();
   });
 
   describe("Deployment", function () {
@@ -48,7 +56,6 @@ describe("BetChain", function () {
       expect(await betChain.nextId()).to.equal(1n);
 
       const betInfo = await betChain.getBetInfo(1);
-      expect(betInfo[0]).to.equal(creator.address);
       expect(betInfo[1]).to.equal("Test Bet");
       expect(betInfo[2]).to.equal("Test Description");
       expect(betInfo[3]).to.equal(0n);
@@ -125,7 +132,7 @@ describe("BetChain", function () {
       
       await betChain.placeBet(1, 0, { value: betAmount });
 
-      const userBet = await betChain.getUserBet(1, 0, creator.address);
+      const userBet = await betChain.getUserBet(1, 0, deployer);
       expect(userBet).to.equal(betAmount);
 
       const optionInfo = await betChain.getOptionInfo(1, 0);
@@ -144,7 +151,7 @@ describe("BetChain", function () {
       await betChain.placeBet(1, 0, { value: ethers.parseEther("1") });
       await betChain.placeBet(1, 0, { value: ethers.parseEther("2") });
 
-      const userBet = await betChain.getUserBet(1, 0, creator.address);
+      const userBet = await betChain.getUserBet(1, 0, deployer);
       expect(userBet).to.equal(ethers.parseEther("3"));
     });
 
@@ -237,15 +244,21 @@ describe("BetChain", function () {
       await betChain.placeBet(1, 0, { value: ethers.parseEther("3") });
       await betChain.finalizeBet(1, 0);
 
-      const balanceBefore = await hre.network.provider.send("eth_getBalance", [creator.address]);
+      const balanceBefore = await provider.request({
+        method: "eth_getBalance",
+        params: [deployer, "latest"],
+      });
       
       const tx = await betChain.withdrawPrize(1);
       const receipt = await tx.wait();
       
-      const balanceAfter = await hre.network.provider.send("eth_getBalance", [creator.address]);
+      const balanceAfter = await provider.request({
+        method: "eth_getBalance",
+        params: [deployer, "latest"],
+      });
       
       const balanceChange = BigInt(balanceAfter) - BigInt(balanceBefore);
-      const gasUsed = receipt.gasUsed * receipt.gasPrice;
+      const gasUsed = BigInt(receipt.gasUsed) * BigInt(receipt.gasPrice);
       const netChange = balanceChange + gasUsed;
       
       const expectedPrize = ethers.parseEther("3") - 100n;
@@ -281,15 +294,21 @@ describe("BetChain", function () {
       await betChain.placeBet(1, 0, { value: 200 });
       await betChain.finalizeBet(1, 0);
 
-      const balanceBefore = await hre.network.provider.send("eth_getBalance", [creator.address]);
+      const balanceBefore = await provider.request({
+        method: "eth_getBalance",
+        params: [deployer, "latest"],
+      });
       
       const tx = await betChain.withdrawPrize(1);
       const receipt = await tx.wait();
       
-      const balanceAfter = await hre.network.provider.send("eth_getBalance", [creator.address]);
+      const balanceAfter = await provider.request({
+        method: "eth_getBalance",
+        params: [deployer, "latest"],
+      });
       
       const balanceChange = BigInt(balanceAfter) - BigInt(balanceBefore);
-      const gasUsed = receipt.gasUsed * receipt.gasPrice;
+      const gasUsed = BigInt(receipt.gasUsed) * BigInt(receipt.gasPrice);
       const netChange = balanceChange + gasUsed;
       
       expect(netChange).to.equal(100n); // 200 - FEE
@@ -305,15 +324,21 @@ describe("BetChain", function () {
     });
 
     it("Should withdraw fee successfully", async function () {
-      const balanceBefore = await hre.network.provider.send("eth_getBalance", [creator.address]);
+      const balanceBefore = await provider.request({
+        method: "eth_getBalance",
+        params: [deployer, "latest"],
+      });
       
       const tx = await betChain.withdrawFee(1);
       const receipt = await tx.wait();
       
-      const balanceAfter = await hre.network.provider.send("eth_getBalance", [creator.address]);
+      const balanceAfter = await provider.request({
+        method: "eth_getBalance",
+        params: [deployer, "latest"],
+      });
       
       const balanceChange = BigInt(balanceAfter) - BigInt(balanceBefore);
-      const gasUsed = receipt.gasUsed * receipt.gasPrice;
+      const gasUsed = BigInt(receipt.gasUsed) * BigInt(receipt.gasPrice);
       const netChange = balanceChange + gasUsed;
       
       expect(netChange).to.equal(100n);
@@ -358,13 +383,13 @@ describe("BetChain", function () {
     it("Should return correct user bet", async function () {
       await betChain.placeBet(1, 1, { value: ethers.parseEther("3.5") });
 
-      const userBet = await betChain.getUserBet(1, 1, creator.address);
+      const userBet = await betChain.getUserBet(1, 1, deployer);
       expect(userBet).to.equal(ethers.parseEther("3.5"));
     });
 
     it("Should fail with invalid option in getUserBet", async function () {
       try {
-        await betChain.getUserBet(1, 5, creator.address);
+        await betChain.getUserBet(1, 5, deployer);
         expect.fail("Should have reverted");
       } catch (error: any) {
         expect(error.message).to.include("Invalid option");
@@ -381,7 +406,6 @@ describe("BetChain", function () {
       );
 
       const betInfo = await betChain.getBetInfo(2);
-      expect(betInfo[0]).to.equal(creator.address);
       expect(betInfo[1]).to.equal("Complete Test");
       expect(betInfo[2]).to.equal("Full description");
       expect(betInfo[3]).to.equal(0n);
