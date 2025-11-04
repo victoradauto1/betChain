@@ -1,45 +1,26 @@
-import type { HardhatUserConfig } from "hardhat/config";
-import "@nomicfoundation/hardhat-coverage";
-import "@nomicfoundation/hardhat-ethers";
+import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox-mocha-ethers";
-
-
-import hardhatToolboxMochaEthersPlugin from "@nomicfoundation/hardhat-toolbox-mocha-ethers";
-import { configVariable } from "hardhat/config";
+require("./hardhat-coverage-bridge.js");
 
 const config: HardhatUserConfig = {
-  plugins: [hardhatToolboxMochaEthersPlugin],
   solidity: {
-    profiles: {
-      default: {
-        version: "0.8.30",
-      },
-      production: {
-        version: "0.8.30",
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 200,
-          },
-        },
-      },
+    version: "0.8.30",
+    settings: {
+      optimizer: { enabled: true, runs: 200 },
     },
   },
   networks: {
-    hardhatMainnet: {
-      type: "edr-simulated",
-      chainType: "l1",
-    },
-    hardhatOp: {
-      type: "edr-simulated",
-      chainType: "op",
-    },
-    sepolia: {
-      type: "http",
-      chainType: "l1",
-      url: configVariable("SEPOLIA_RPC_URL"),
-      accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
-    },
+    hardhatMainnet: { type: "edr-simulated", chainType: "l1" },
+    hardhatOp: { type: "edr-simulated", chainType: "op" },
+    // sepolia: {
+    //   type: "http",
+    //   chainType: "l1",
+    //   url: process.env.SEPOLIA_RPC_URL || "",
+    //   accounts:
+    //     process.env.SEPOLIA_PRIVATE_KEY !== undefined
+    //       ? [process.env.SEPOLIA_PRIVATE_KEY]
+    //       : [],
+    // },
   },
 };
 

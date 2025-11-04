@@ -4,32 +4,29 @@ import { ethers } from "ethers";
 
 describe("BetChain", function () {
   let betChain: any;
-  let deployer: string;
+  let deployer: any;
   let provider: any;
-  let wallet: any;
 
-  before(async function () {
-    // Connect to Hardhat network and get provider
-    const connection = await hre.network.connect();
-    provider = connection.provider;
+  beforeEach(async function () {
+    // Get provider from Hardhat
+    provider = await hre.network.connect().then(conn => conn.provider);
     
-    // Get first account
+    // Get accounts
     const accounts = await provider.request({
       method: "eth_accounts",
       params: [],
     });
     deployer = accounts[0];
     
-    // Create wallet with the hardhat default private key
-    wallet = new ethers.Wallet(
+    // Deploy contract
+    const BetChain = await hre.artifacts.readArtifact("BetChain");
+    
+    // Create wallet for deployment
+    const wallet = new ethers.Wallet(
       "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
       new ethers.JsonRpcProvider("http://127.0.0.1:8545")
     );
-  });
-
-  beforeEach(async function () {
-    // Deploy contract
-    const BetChain = await hre.artifacts.readArtifact("BetChain");
+    
     const factory = new ethers.ContractFactory(BetChain.abi, BetChain.bytecode, wallet);
     betChain = await factory.deploy();
     await betChain.waitForDeployment();
@@ -425,18 +422,15 @@ describe("BetChain", function () {
         options
       );
 
-      // Place bets
       await betChain.placeBet(1, 0, { value: ethers.parseEther("3") });
       await betChain.placeBet(1, 1, { value: ethers.parseEther("2") });
       await betChain.placeBet(1, 0, { value: ethers.parseEther("1") });
 
-      // Finalize
       await betChain.finalizeBet(1, 0);
 
-      // Check total pool
       const betInfo = await betChain.getBetInfo(1);
       expect(betInfo[3]).to.equal(ethers.parseEther("6"));
-      expect(betInfo[5]).to.be.true; // finalized
+      expect(betInfo[5]).to.be.true;
     });
   });
 });

@@ -1,68 +1,110 @@
 "use client";
-import Footer from "@/componets/Footer";
+
 import { useEffect, useState } from "react";
+import { useBetChain } from "../context/betChainContext";
 import { useRouter } from "next/navigation";
-import { doLogin } from "@/services/web3Services";
+import { ethers } from "ethers";
 
 export default function Home() {
+  const { contract, account, connectWallet } = useBetChain();
+  const [bets, setBets] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-  const {push} = useRouter();
-  const [message, setMessage] = useState();
-
+  // 🔄 Load all existing bets from the contract
   useEffect(() => {
-    document.title = "BetCandidate | Login";
-  }, []);
+    const loadBets = async () => {
+      if (!contract) return;
+      setLoading(true);
+      try {
+        const nextId = await contract.methods.nextId().call();
+        const total = Number(nextId);
+        const betsList = [];
 
-  function btnLoginClick(){
+        for (let i = 1; i <= total; i++) { // IDs start from 1 in your contract
+          const bet = await contract.methods.getBetInfo(i).call();
+          betsList.push({
+            id: i,
+            creator: bet.creator,
+            title: bet.title,
+            description: bet.description,
+            imageUrl: bet.imageUrl,
+            totalPool: bet.totalPool,
+            active: bet.active,
+            finalized: bet.finalized,
+          });
+        }
 
-    setMessage("Conectando na carteira... agurade...")
-    doLogin()
-      .then(wallet=>{
-        setMessage(`Carteira ${wallet} conectada.`);
-        push("/bet")
-      })
-      .catch(err =>{
-        console.error(err);
-        setMessage(err.message);
-        push("/");
-      })
-      
-  };
+        setBets(betsList.reverse()); // Most recent bets first
+      } catch (err) {
+        console.error("Error loading bets:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadBets();
+  }, [contract]);
 
   return (
-    <div className="container px-4 py-5">
-      <div className="row flex-lg-row-reverse align-items-center g-5 py-5 ">
-        <div className="col-6 ">
-          <img
-            src="https://i.abcnewsfe.com/a/b1b973de-cea7-49af-ac28-deb81fbc8b8f/trump-harris-ap-rt-gmh-240723_1721741260182_hpMain.jpg"
-            className="d-block mx-lg-auto img-fluid"
-            width="700"
-            height="500"
-          />
-        </div>
-        <div className="col-6 ">
-          <h1 className="display-5 fw-bold text-body-emphasis lh-1 mb-3">
-            BetCandidate
-          </h1>
-          <p className="lead">Apostas on-chain nas eleições americanas.</p>
-          <p className="lead">
-            Autentique-se com sua carteira e deixe a sua aposta na disputa para
-            Casa Branca de 2024.
-          </p>
-          <div className="d-flex justify-content-start ">
-            <button type="button" className="btn btn-primary btn-lg px-4" onClick={btnLoginClick}>
-              <img
-                src="/images/MetaMask_Fox.svg.png"
-                width={64}
-                className="me-3"
-              />
-              Conectar-se com MetaMask
-            </button>
-          </div>
-          <p className="message">{message}</p>
-        </div>
+    <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center px-6 py-10">
+      <header className="w-full flex justify-between items-center max-w-6xl mb-10">
+        <h1 className="text-3xl font-bold tracking-wide">🏆 BetChain</h1>
+        {account ? (
+          <span className="text-sm bg-gray-800 px-4 py-2 rounded-xl">
+            {account.slice(0, 6)}...{account.slice(-4)}
+          </span>
+        ) : (
+          <button
+            onClick={connectWallet}
+            className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-xl text-sm font-semibold"
+          >
+            Connect Wallet
+          </button>
+        )}
+      </header>
+
+      <div className="w-full max-w-6xl flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-semibold">Active Bets</h2>
+        <button
+          onClick={() => router.push("/create")}
+          className="bg-green-600 hover:bg-green-500 px-4 py-2 rounded-xl text-sm font-semibold"
+        >
+          + Create Bet
+        </button>
       </div>
-      <Footer/>
+
+      {loading ? (
+        <p className="text-gray-400 mt-10">Loading bets...</p>
+      ) : bets.length === 0 ? (
+        <p className="text-gray-400 mt-10">No bets found yet.</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
+          {bets.map((bet) => (
+            <div
+              key={bet.id}
+              className="bg-gray-900 p-5 rounded-2xl shadow-md hover:shadow-indigo-600/30 transition cursor-pointer"
+              onClick={() => router.push(`/bet/${bet.id}`)}
+            >
+              {bet.imageUrl && (
+                <img
+                  src={bet.imageUrl}
+                  alt={bet.title}
+                  className="w-full h-40 object-cover rounded-xl mb-3"
+                />
+              )}
+              <h3 className="text-lg font-semibold mb-1">{bet.title}</h3>
+              <p className="text-sm text-gray-400 mb-2 line-clamp-2">{bet.description}</p>
+              <div className="flex justify-between items-center mt-3 text-sm text-gray-300">
+                <span>{bet.active ? "🟢 Active" : "🔴 Closed"}</span>
+                <span className="text-indigo-400">
+                  Balance: {ethers.formatEther(bet.totalPool)} ETH
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

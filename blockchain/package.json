@@ -3,7 +3,12 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npx hardhat test",
+    "test:all": "npx hardhat test",
+    "clean": "npx hardhat clean",
+    "compile": "npx hardhat compile",
+    "coverage": "npx hardhat coverage"
+
   },
   "keywords": [],
   "author": "",
