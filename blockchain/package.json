@@ -4,11 +4,7 @@
   "main": "index.js",
   "scripts": {
     "test": "npx hardhat test",
-    "test:all": "npx hardhat test",
-    "clean": "npx hardhat clean",
-    "compile": "npx hardhat compile",
-    "coverage": "npx hardhat coverage"
-
+    "test:coverage": "nyc hardhat test"
   },
   "keywords": [],
   "author": "",

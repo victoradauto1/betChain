@@ -1,6 +1,6 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox-mocha-ethers";
-require("./hardhat-coverage-bridge.js");
+import "solidity-coverage";
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -21,7 +21,7 @@ const config: HardhatUserConfig = {
     //       ? [process.env.SEPOLIA_PRIVATE_KEY]
     //       : [],
     // },
-  },
+  }
 };
 
 export default config;
