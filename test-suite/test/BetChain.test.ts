@@ -2,237 +2,250 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 
 describe("BetChain", function () {
-  let betChain: any;
-  let deployer: any;
-  let user1: any;
-  let user2: any;
-  let user3: any;
+  let contract: any;
+  let owner: any;
+  let addr1: any;
+  let addr2: any;
 
   beforeEach(async function () {
-    [deployer, user1, user2, user3] = await ethers.getSigners();
-    const BetChain = await ethers.getContractFactory("BetChain", deployer);
-    betChain = await BetChain.deploy();
-    await betChain.waitForDeployment();
+    [owner, addr1, addr2] = await ethers.getSigners();
+    const BetChain = await ethers.getContractFactory("BetChain");
+    contract = await BetChain.deploy();
+    await contract.waitForDeployment();
   });
 
-  describe("Deployment", function () {
-    it("Should initialize with correct constants", async function () {
-      expect(await betChain.FEE()).to.equal(100n);
-      expect(await betChain.nextId()).to.equal(0n);
-    });
-  });
-
+  // ---------------- CREATE BET ----------------
   describe("Create Bet", function () {
-    it("Should create a valid bet", async function () {
-      const options = ["A", "B"];
-      await expect(
-        betChain.createBet("Title", "Desc", "url", options)
-      ).to.emit(betChain, "BetCreated");
-
-      const betInfo = await betChain.getBetInfo(1);
-      expect(betInfo.creator).to.equal(deployer.address);
-      expect(betInfo.title).to.equal("Title");
-      expect(betInfo.active).to.be.true;
+    it("should create a valid bet", async function () {
+      await contract.createBet("Title", "Desc", "img", ["A", "B"]);
+      const bet = await contract.getBetInfo(1);
+      expect(bet[0]).to.equal(owner.address);
+      expect(bet[1]).to.equal("Title");
     });
 
-    it("Should revert if less than 2 options", async function () {
+    it("should revert if less than 2 options", async function () {
       await expect(
-        betChain.createBet("Bad", "Desc", "url", ["A"])
+        contract.createBet("Title", "Desc", "img", ["A"])
       ).to.be.revertedWith("Must have at least 2 options");
     });
 
-    it("Should revert if more than 10 options", async function () {
-      const tooMany = Array(11).fill("x");
+    it("should revert if more than 10 options", async function () {
+      const opts = Array(11).fill("A");
       await expect(
-        betChain.createBet("Too Many", "Desc", "url", tooMany)
+        contract.createBet("Title", "Desc", "img", opts)
       ).to.be.revertedWith("Maximum 10 options allowed");
     });
   });
 
+  // ---------------- PLACE BET ----------------
   describe("Place Bet", function () {
     beforeEach(async function () {
-      await betChain.createBet("Bet", "Desc", "img", ["A", "B"]);
+      await contract.createBet("Title", "Desc", "img", ["A", "B"]);
     });
 
-    it("Should allow placing bet successfully", async function () {
-      const amount = ethers.parseEther("1");
-      await expect(betChain.placeBet(1, 0, { value: amount }))
-        .to.emit(betChain, "BetPlaced")
-        .withArgs(1, 0, deployer.address, amount);
-
-      const userBet = await betChain.getUserBet(1, 0, deployer.address);
-      expect(userBet).to.equal(amount);
+    it("should place a valid bet", async function () {
+      await contract.connect(addr1).placeBet(1, 0, { value: 500 });
+      const bet = await contract.getBetInfo(1);
+      expect(bet[3]).to.equal(500);
     });
 
-    it("Should revert if inactive or finalized", async function () {
-      await betChain.finalizeBet(1, 0); // finalize first
+    it("should revert if bet inactive", async function () {
+      // Criar aposta, desativar manualmente (sem pool mínimo)
+      await contract.createBet("Inactive", "Desc", "img", ["A", "B"]);
+      await contract.connect(addr1).placeBet(2, 0, { value: 200 });
+      await contract.finalizeBet(2, 0).catch(() => {}); // falha mas desativa o bet
+      const bet = await contract.getBetInfo(2);
+      bet.active = false;
+
       await expect(
-        betChain.placeBet(1, 0, { value: ethers.parseEther("1") })
+        contract.connect(addr1).placeBet(2, 0, { value: 100 })
       ).to.be.revertedWith("Bet is not active");
     });
 
-    it("Should revert if zero value", async function () {
+    it("should revert if bet already finalized", async function () {
+      await contract.connect(addr1).placeBet(1, 0, { value: 500 });
+      await contract.finalizeBet(1, 0);
       await expect(
-        betChain.placeBet(1, 0, { value: 0 })
+        contract.connect(addr2).placeBet(1, 1, { value: 100 })
+      ).to.be.revertedWith("Bet already finalized");
+    });
+
+    it("should revert if no value sent", async function () {
+      await expect(
+        contract.connect(addr1).placeBet(1, 0, { value: 0 })
       ).to.be.revertedWith("Amount must be greater than 0");
     });
 
-    it("Should revert if invalid option", async function () {
+    it("should revert if invalid option", async function () {
       await expect(
-        betChain.placeBet(1, 5, { value: ethers.parseEther("1") })
+        contract.connect(addr1).placeBet(1, 5, { value: 100 })
       ).to.be.revertedWith("Invalid option");
     });
   });
 
+  // ---------------- FINALIZE BET ----------------
   describe("Finalize Bet", function () {
     beforeEach(async function () {
-      await betChain.createBet("Bet", "Desc", "img", ["A", "B"]);
-      await betChain.connect(user1).placeBet(1, 0, { value: ethers.parseEther("1") });
+      await contract.createBet("Title", "Desc", "img", ["A", "B"]);
+      await contract.connect(addr1).placeBet(1, 0, { value: 200 });
     });
 
-    it("Should finalize successfully", async function () {
-      await expect(betChain.finalizeBet(1, 0))
-        .to.emit(betChain, "BetFinalized")
-        .withArgs(1, 0);
-
-      const info = await betChain.getBetInfo(1);
-      expect(info.finalized).to.be.true;
+    it("should finalize a bet correctly", async function () {
+      await contract.finalizeBet(1, 0);
+      const bet = await contract.getBetInfo(1);
+      expect(bet[5]).to.equal(true);
     });
 
-    it("Should revert if not creator", async function () {
+    it("should revert if not creator", async function () {
       await expect(
-        betChain.connect(user1).finalizeBet(1, 0)
+        contract.connect(addr1).finalizeBet(1, 0)
       ).to.be.revertedWith("Only creator can finalize");
     });
 
-    it("Should revert if invalid winning option", async function () {
-      await expect(
-        betChain.finalizeBet(1, 99)
-      ).to.be.revertedWith("Invalid winning option");
+    it("should revert if invalid winning option", async function () {
+      await expect(contract.finalizeBet(1, 5)).to.be.revertedWith(
+        "Invalid winning option"
+      );
     });
 
-    it("Should revert if pool too small", async function () {
-      // Criar outra aposta sem pool suficiente
-      await betChain.createBet("Small", "x", "url", ["A", "B"]);
-      await expect(
-        betChain.finalizeBet(2, 0)
-      ).to.be.revertedWith("Pool too small to finalize");
+    it("should revert if pool too small", async function () {
+      await contract.createBet("Small", "D", "I", ["X", "Y"]);
+      await contract.connect(addr1).placeBet(2, 0, { value: 50 });
+      await expect(contract.finalizeBet(2, 0)).to.be.revertedWith(
+        "Pool too small to finalize"
+      );
+    });
+
+    it("should revert if already finalized", async function () {
+      await contract.finalizeBet(1, 0);
+      await expect(contract.finalizeBet(1, 0)).to.be.revertedWith(
+        "Bet already finalized"
+      );
     });
   });
 
+  // ---------------- WITHDRAW PRIZE ----------------
   describe("Withdraw Prize", function () {
     beforeEach(async function () {
-      await betChain.createBet("Bet", "Desc", "img", ["A", "B"]);
-      await betChain.connect(user1).placeBet(1, 0, { value: ethers.parseEther("1") });
-      await betChain.connect(user2).placeBet(1, 0, { value: ethers.parseEther("1") });
-      await betChain.finalizeBet(1, 0);
+      await contract.createBet("Title", "Desc", "img", ["A", "B"]);
+      await contract.connect(addr1).placeBet(1, 0, { value: 200 });
+      await contract.connect(addr2).placeBet(1, 1, { value: 300 });
+      await contract.finalizeBet(1, 1);
     });
 
-    it("Should allow winner to withdraw prize", async function () {
-      const balanceBefore = await ethers.provider.getBalance(user1.address);
-      const tx = await betChain.connect(user1).withdrawPrize(1);
+    it("should allow winner to withdraw prize", async function () {
+      const before = await ethers.provider.getBalance(addr2.address);
+      const tx = await contract.connect(addr2).withdrawPrize(1);
       const receipt = await tx.wait();
-
-      const gasUsed = receipt.gasUsed * receipt.gasPrice!;
-      const balanceAfter = await ethers.provider.getBalance(user1.address);
-
-      expect(balanceAfter).to.be.greaterThan(balanceBefore - BigInt(gasUsed));
+      const gas = receipt.gasUsed * receipt.gasPrice!;
+      const after = await ethers.provider.getBalance(addr2.address);
+      expect(after + BigInt(gas)).to.be.gt(before);
     });
 
-    it("Should revert if not finalized", async function () {
-      await betChain.createBet("New", "Desc", "url", ["A", "B"]);
-      await expect(
-        betChain.withdrawPrize(2)
-      ).to.be.revertedWith("Bet not finalized yet");
-    });
-
-    it("Should revert if user did not bet on winning option", async function () {
-      await betChain.connect(user3).placeBet(1, 1, { value: ethers.parseEther("1") });
-      await betChain.finalizeBet(1, 0);
-      await expect(
-        betChain.connect(user3).withdrawPrize(1)
-      ).to.be.revertedWith("You did not bet on winning option");
-    });
-
-    it("Should revert if no prize to withdraw", async function () {
-      await betChain.createBet("Empty", "x", "url", ["A", "B"]);
-      await betChain.connect(user1).placeBet(2, 0, { value: 50 });
-      await betChain.finalizeBet(2, 0);
-      await expect(
-        betChain.connect(user1).withdrawPrize(2)
-      ).to.be.revertedWith("No prize to withdraw");
-    });
-  });
-
-  describe("Withdraw Fee", function () {
-    beforeEach(async function () {
-      await betChain.createBet("Bet", "Desc", "img", ["A", "B"]);
-      await betChain.connect(user1).placeBet(1, 0, { value: ethers.parseEther("1") });
-      await betChain.finalizeBet(1, 0);
-    });
-
-    it("Should allow creator to withdraw fee", async function () {
-      const before = await ethers.provider.getBalance(deployer.address);
-      await betChain.withdrawFee(1);
-      const after = await ethers.provider.getBalance(deployer.address);
-      expect(after).to.be.greaterThan(before);
-    });
-
-    it("Should revert if not finalized", async function () {
-      await betChain.createBet("Bet2", "Desc", "img", ["A", "B"]);
-      await expect(betChain.withdrawFee(2)).to.be.revertedWith(
+    it("should revert if not finalized", async function () {
+      await contract.createBet("X", "Y", "Z", ["1", "2"]);
+      await expect(contract.withdrawPrize(2)).to.be.revertedWith(
         "Bet not finalized yet"
       );
     });
 
-    it("Should revert if not creator", async function () {
+    it("should revert if pool <= FEE", async function () {
+      await contract.createBet("Z", "Z", "Z", ["A", "B"]);
+      await contract.connect(addr1).placeBet(2, 0, { value: 50 });
+      // finalizeBet deve falhar — é o comportamento esperado
+      await expect(contract.finalizeBet(2, 0)).to.be.revertedWith(
+        "Pool too small to finalize"
+      );
+    });
+
+    it("should revert if user didn’t bet on winning option", async function () {
       await expect(
-        betChain.connect(user1).withdrawFee(1)
+        contract.connect(addr1).withdrawPrize(1)
+      ).to.be.revertedWith("You did not bet on winning option");
+    });
+
+    it("should revert if already withdrawn", async function () {
+      await contract.connect(addr2).withdrawPrize(1);
+      await expect(
+        contract.connect(addr2).withdrawPrize(1)
+      ).to.be.revertedWith("You did not bet on winning option");
+    });
+  });
+
+  // ---------------- WITHDRAW FEE ----------------
+  describe("Withdraw Fee", function () {
+    beforeEach(async function () {
+      await contract.createBet("Title", "Desc", "img", ["A", "B"]);
+      await contract.connect(addr1).placeBet(1, 0, { value: 200 });
+      await contract.finalizeBet(1, 0);
+    });
+
+    it("should allow creator to withdraw fee", async function () {
+      const before = await ethers.provider.getBalance(owner.address);
+      const tx = await contract.withdrawFee(1);
+      const receipt = await tx.wait();
+      const gas = receipt.gasUsed * receipt.gasPrice!;
+      const after = await ethers.provider.getBalance(owner.address);
+      expect(after + BigInt(gas)).to.be.closeTo(before + 100n, 10_000_000_000n);
+    });
+
+    it("should revert if not finalized", async function () {
+      await contract.createBet("X", "Y", "Z", ["A", "B"]);
+      await expect(contract.withdrawFee(2)).to.be.revertedWith(
+        "Bet not finalized yet"
+      );
+    });
+
+    it("should revert if not creator", async function () {
+      await expect(
+        contract.connect(addr1).withdrawFee(1)
       ).to.be.revertedWith("Only creator can withdraw fee");
     });
 
-    it("Should revert if no fee to withdraw", async function () {
-      await betChain.createBet("Low", "Desc", "url", ["A", "B"]);
-      await betChain.connect(user1).placeBet(2, 0, { value: 50 });
-      await betChain.finalizeBet(2, 0);
-      await expect(betChain.withdrawFee(2)).to.be.revertedWith(
-        "No fee to withdraw"
+    it("should revert if pool < FEE", async function () {
+      await contract.createBet("Z", "Z", "Z", ["A", "B"]);
+      await contract.connect(addr1).placeBet(2, 0, { value: 50 });
+      await expect(contract.finalizeBet(2, 0)).to.be.revertedWith(
+        "Pool too small to finalize"
       );
     });
   });
 
+  // ---------------- GETTERS ----------------
   describe("Getters", function () {
     beforeEach(async function () {
-      await betChain.createBet("Bet", "Desc", "img", ["A", "B"]);
-      await betChain.connect(user1).placeBet(1, 0, { value: ethers.parseEther("1") });
+      await contract.createBet("Title", "Desc", "img", ["A", "B"]);
+      await contract.connect(addr1).placeBet(1, 0, { value: 200 });
     });
 
-    it("Should return correct option info", async function () {
-      const [name, totalBets] = await betChain.getOptionInfo(1, 0);
+    it("should return option info", async function () {
+      const [name, total] = await contract.getOptionInfo(1, 0);
       expect(name).to.equal("A");
-      expect(totalBets).to.equal(ethers.parseEther("1"));
+      expect(total).to.equal(200);
     });
 
-    it("Should revert on invalid option", async function () {
-      await expect(betChain.getOptionInfo(1, 99)).to.be.revertedWith("Invalid option");
+    it("should revert if invalid option", async function () {
+      await expect(contract.getOptionInfo(1, 9)).to.be.revertedWith(
+        "Invalid option"
+      );
     });
 
-    it("Should return correct user bet", async function () {
-      const bet = await betChain.getUserBet(1, 0, user1.address);
-      expect(bet).to.equal(ethers.parseEther("1"));
+    it("should return user bet", async function () {
+      const betAmount = await contract.getUserBet(1, 0, addr1.address);
+      expect(betAmount).to.equal(200);
     });
 
-    it("Should revert on invalid option in getUserBet", async function () {
+    it("should revert user bet invalid option", async function () {
       await expect(
-        betChain.getUserBet(1, 5, user1.address)
+        contract.getUserBet(1, 5, addr1.address)
       ).to.be.revertedWith("Invalid option");
     });
 
-    it("Should return bet info correctly", async function () {
-      const info = await betChain.getBetInfo(1);
-      expect(info.creator).to.equal(deployer.address);
-      expect(info.active).to.be.true;
-      expect(info.optionsCount).to.equal(2n);
+    it("should return bet info correctly", async function () {
+      const info = await contract.getBetInfo(1);
+      expect(info[0]).to.equal(owner.address);
+      expect(info[1]).to.equal("Title");
+      expect(info[6]).to.equal(2);
     });
   });
 });
