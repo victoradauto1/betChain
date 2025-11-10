@@ -154,6 +154,14 @@ describe("BetChain", function () {
       );
     });
 
+    it("should not withdraw prize (pool < FEE)", async function () {
+      await contract.createBet("Z", "Z", "Z", ["A", "B"]);
+      await contract.connect(addr1).placeBet(2, 0, { value: 50 });
+      await expect(contract.finalizeBet(2, 0)).to.be.revertedWith(
+        "Pool too small to finalize"
+      );
+    });
+
     it("should revert if user didn’t bet on winning option", async function () {
       await expect(contract.connect(addr1).withdrawPrize(1)).to.be.revertedWith(
         "You did not bet on winning option"

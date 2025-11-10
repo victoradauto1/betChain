@@ -92,28 +92,41 @@ contract BetChain {
     
     // Retirar prêmio (para vencedores)
     function withdrawPrize(uint256 betId) public {
-        Bet storage bet = bets[betId];
-        
-        require(bet.finalized, "Bet not finalized yet");
-        require(bet.totalPool > FEE, "No prize to withdraw");
-        
-        uint256 userBet = bet.options[bet.winningOption].bets[msg.sender];
-        require(userBet > 0, "You did not bet on winning option");
-        
-        uint256 winningPool = bet.options[bet.winningOption].totalBets;
-        uint256 prizePool = bet.totalPool - FEE;
-        
-        // Calcula o prêmio proporcional do usuário
-        uint256 prize = (prizePool * userBet) / winningPool;
-        
-        // Zera a aposta do usuário para evitar retiradas múltiplas
-        bet.options[bet.winningOption].bets[msg.sender] = 0;
-        
-        (bool success, ) = payable(msg.sender).call{value: prize}("");
-        require(success, "Failed to send prize");
-        
-        emit PrizeWithdrawn(betId, msg.sender, prize);
-    }
+    Bet storage bet = bets[betId];
+
+    // Mandatory: only allow withdrawals after the bet has been finalized.
+    require(bet.finalized, "Bet not finalized yet");
+
+    // NOTE: in normal flow this check is redundant because finalizeBet()
+    // already enforces `bet.totalPool > FEE` before setting finalized = true.
+    // We keep this require as an extra defensive layer (fail-safe) in case:
+    //  - future changes allow manipulation of totalPool after finalization, or
+    //  - under adversarial scenarios (e.g., integrations or upgrades).
+    // Keeping it has minimal gas cost and improves robustness.
+    require(bet.totalPool > FEE, "No prize to withdraw");
+
+    uint256 userBet = bet.options[bet.winningOption].bets[msg.sender];
+    require(userBet > 0, "You did not bet on winning option");
+
+    uint256 winningPool = bet.options[bet.winningOption].totalBets;
+    uint256 prizePool = bet.totalPool - FEE;
+
+    // Calculate the user’s proportional prize
+    uint256 prize = (prizePool * userBet) / winningPool;
+
+    // Reset the user’s bet to prevent multiple withdrawals
+    bet.options[bet.winningOption].bets[msg.sender] = 0;
+
+    // Transfer using call — modern and secure approach.
+    // If the transfer fails (for example, if the recipient is a contract
+    // that reverts in its fallback/receive function), call will return success = false.
+    // We keep require(success) here as a safeguard against transfer failures.
+    (bool success, ) = payable(msg.sender).call{value: prize}("");
+    require(success, "Failed to send prize");
+
+    emit PrizeWithdrawn(betId, msg.sender, prize);
+}
+
     
     // Retirar taxa da casa (apenas o criador da aposta)
     function withdrawFee(uint256 betId) public {
