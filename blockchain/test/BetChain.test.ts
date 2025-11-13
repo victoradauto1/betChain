@@ -1,13 +1,18 @@
 import { expect } from "chai";
-import hre from "hardhat";
-// @ts-ignore
-const { ethers } = hre
+import { network } from "hardhat";
 
 describe("BetChain", function () {
   let contract: any;
   let owner: any;
   let addr1: any;
   let addr2: any;
+
+  let ethers: any;
+
+  before(async function () {
+    const connection = await network.connect({ network: "hardhatMainnet" });
+    ethers = connection.ethers;
+  });
 
   beforeEach(async function () {
     [owner, addr1, addr2] = await ethers.getSigners();
