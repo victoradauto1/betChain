@@ -1,17 +1,17 @@
+import type { HardhatUserConfig } from "hardhat/config";
+
 import hardhatToolboxMochaEthersPlugin from "@nomicfoundation/hardhat-toolbox-mocha-ethers";
-import { configVariable, defineConfig } from "hardhat/config";
-import "@nomicfoundation/hardhat-ethers";
+import { configVariable } from "hardhat/config";
 
-
-export default defineConfig({
+const config: HardhatUserConfig = {
   plugins: [hardhatToolboxMochaEthersPlugin],
   solidity: {
     profiles: {
       default: {
-        version: "0.8.28",
+        version: "0.8.30",
       },
       production: {
-        version: "0.8.28",
+        version: "0.8.30",
         settings: {
           optimizer: {
             enabled: true,
@@ -37,4 +37,11 @@ export default defineConfig({
       accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
     },
   },
-});
+   verify: {
+    etherscan: {
+      apiKey: configVariable("YOUR_ETHERSCAN_API_KEY"),
+    },
+  },
+};
+
+export default config;

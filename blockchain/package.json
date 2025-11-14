@@ -6,7 +6,8 @@
   "scripts": {
     "test": "npx hardhat test",
     "coverage": "npx hardhat coverage",
-    "compile": "npx hardhat compile"
+    "compile": "npx hardhat compile",
+    "deploy": "npx hardhat ignition deploy ignition/modules/BetChain.ts --network sepolia"
   },
   "keywords": [],
   "author": "",
