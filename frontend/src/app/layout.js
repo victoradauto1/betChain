@@ -1,6 +1,8 @@
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./globals.css";
 
+import { BetChainProvider } from "@/context/betChainContext";
+
 export const metadata = {
   title: "BetCandidate",
   description: "Bet on your best candidate!",
@@ -11,7 +13,11 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+      <BetChainProvider>
+          {children}
+      </BetChainProvider>
+      </body>
     </html>
   );
 }

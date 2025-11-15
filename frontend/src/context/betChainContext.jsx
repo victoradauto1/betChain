@@ -1,16 +1,13 @@
+"use client";
+
 import Web3 from "web3";
-import { createContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import BetChainABI from "../abi/BetChain.json";
 
-const TARGET_CHAIN_ID = "0xaa36a7"; // Sepolia
-const CONTRACT_ADDRESS = "0x..."; // substituir após deploy
+const TARGET_CHAIN_ID = "0xaa36a7"; // Sepolia chainId
+const CONTRACT_ADDRESS = "0x5B49C937B0c431D26478e6C9E7a73a5d3b267f7A";
 
-export const BetChainContext = createContext({
-  web3: null,
-  account: null,
-  contract: null,
-  connectWallet: async () => {},
-});
+export const BetChainContext = createContext(null);
 
 export const BetChainProvider = ({ children }) => {
   const [web3, setWeb3] = useState(null);
@@ -18,50 +15,60 @@ export const BetChainProvider = ({ children }) => {
   const [contract, setContract] = useState(null);
 
   const connectWallet = async () => {
-    if (typeof window.ethereum !== "undefined") {
-      const ethereum = window.ethereum;
+    if (!window.ethereum) {
+      alert("Please install MetaMask!");
+      return;
+    }
 
-      const chainId = await ethereum.request({ method: "eth_chainId" });
-      if (chainId !== TARGET_CHAIN_ID) {
-        try {
+    const ethereum = window.ethereum;
+
+    // Validate network
+    const chainId = await ethereum.request({ method: "eth_chainId" });
+    if (chainId !== TARGET_CHAIN_ID) {
+      try {
+        await ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: TARGET_CHAIN_ID }],
+        });
+      } catch (err) {
+        // If chain is not added to MetaMask
+        if (err.code === 4902) {
           await ethereum.request({
-            method: "wallet_switchEthereumChain",
-            params: [{ chainId: TARGET_CHAIN_ID }],
-          });
-        } catch (switchError) {
-          if (switchError.code === 4902) {
-            await ethereum.request({
-              method: "wallet_addEthereumChain",
-              params: [
-                {
-                  chainId: TARGET_CHAIN_ID,
-                  chainName: "Sepolia Test Network",
-                  nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-                  rpcUrls: ["https://sepolia.infura.io/v3/YOUR_PROJECT_ID"],
-                  blockExplorerUrls: ["https://sepolia.etherscan.io"],
+            method: "wallet_addEthereumChain",
+            params: [
+              {
+                chainId: TARGET_CHAIN_ID,
+                chainName: "Sepolia Test Network",
+                rpcUrls: ["https://rpc.sepolia.org"],
+                nativeCurrency: {
+                  name: "ETH",
+                  symbol: "ETH",
+                  decimals: 18,
                 },
-              ],
-            });
-          } else {
-            console.error("Error switching network:", switchError);
-            return;
-          }
+                blockExplorerUrls: ["https://sepolia.etherscan.io"],
+              },
+            ],
+          });
+        } else {
+          console.error("Network switch error:", err);
+          return;
         }
       }
-
-      const accounts = await ethereum.request({ method: "eth_requestAccounts" });
-      const web3Instance = new Web3(ethereum);
-      const contractInstance = new web3Instance.eth.Contract(BetChainABI, CONTRACT_ADDRESS);
-
-      setWeb3(web3Instance);
-      setAccount(accounts[0]);
-      setContract(contractInstance);
-
-      ethereum.on("accountsChanged", (accs) => setAccount(accs[0]));
-      ethereum.on("chainChanged", () => window.location.reload());
-    } else {
-      alert("Please install MetaMask to use BetChain!");
     }
+
+    const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+    const web3Instance = new Web3(ethereum);
+    const contractInstance = new web3Instance.eth.Contract(
+      BetChainABI,
+      CONTRACT_ADDRESS
+    );
+
+    setWeb3(web3Instance);
+    setAccount(accounts[0]);
+    setContract(contractInstance);
+
+    ethereum.on("accountsChanged", (accs) => setAccount(accs[0]));
+    ethereum.on("chainChanged", () => window.location.reload());
   };
 
   useEffect(() => {
@@ -69,8 +76,12 @@ export const BetChainProvider = ({ children }) => {
   }, []);
 
   return (
-    <BetChainContext.Provider value={{ web3, account, contract }}>
+    <BetChainContext.Provider
+      value={{ web3, account, contract, connectWallet }}
+    >
       {children}
     </BetChainContext.Provider>
   );
 };
+
+export const useBetChain = () => useContext(BetChainContext);

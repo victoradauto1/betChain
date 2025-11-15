@@ -1,0 +1,39 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_30-416de5fdf3a978253a2def852bc6d4530284d760",
+  "solcVersion": "0.8.30",
+  "solcLongVersion": "0.8.30+commit.73712a01",
+  "userSourceNameMap": {
+    "contracts/BetChain.sol": "project/contracts/BetChain.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "prague",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode",
+            "evm.deployedBytecode",
+            "evm.methodIdentifiers",
+            "metadata"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/BetChain.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.28;\n\nstruct BetOption {\n    string name;\n    uint256 totalBets;\n    mapping(address => uint256) bets;\n}\n\nstruct Bet {\n    address creator;\n    string title;\n    string description;\n    string imageUrl;\n    uint256 optionsCount;\n    mapping(uint256 => BetOption) options;\n    uint256 totalPool;\n    bool active;\n    bool finalized;\n    uint256 winningOption;\n}\n\ncontract BetChain {\n    uint256 public constant FEE = 100; // Taxa da casa em wei\n    uint256 public nextId = 0;\n\n    mapping(uint256 => Bet) public bets;\n\n    event BetCreated(uint256 indexed id, address indexed creator, string title);\n    event BetPlaced(\n        uint256 indexed id,\n        uint256 optionId,\n        address indexed bettor,\n        uint256 amount\n    );\n    event BetFinalized(uint256 indexed id, uint256 winningOption);\n    event PrizeWithdrawn(\n        uint256 indexed id,\n        address indexed winner,\n        uint256 amount\n    );\n\n    // Criar uma nova aposta\n    function createBet(\n        string calldata title,\n        string calldata description,\n        string calldata imageUrl,\n        string[] calldata optionNames\n    ) public {\n        require(optionNames.length >= 2, \"Must have at least 2 options\");\n        require(optionNames.length <= 10, \"Maximum 10 options allowed\");\n\n        nextId++;\n        Bet storage newBet = bets[nextId];\n        newBet.creator = msg.sender;\n        newBet.title = title;\n        newBet.description = description;\n        newBet.imageUrl = imageUrl;\n        newBet.optionsCount = optionNames.length;\n        newBet.active = true;\n        newBet.finalized = false;\n\n        for (uint256 i = 0; i < optionNames.length; i++) {\n            newBet.options[i].name = optionNames[i];\n            newBet.options[i].totalBets = 0;\n        }\n\n        emit BetCreated(nextId, msg.sender, title);\n    }\n\n    // Apostar em uma opção\n    function placeBet(uint256 betId, uint256 optionId) public payable {\n        Bet storage bet = bets[betId];\n\n        require(bet.active, \"Bet is not active\");\n        require(msg.value > 0, \"Amount must be greater than 0\");\n        require(optionId < bet.optionsCount, \"Invalid option\");\n\n        bet.options[optionId].bets[msg.sender] += msg.value;\n        bet.options[optionId].totalBets += msg.value;\n        bet.totalPool += msg.value;\n\n        emit BetPlaced(betId, optionId, msg.sender, msg.value);\n    }\n\n    // Finalizar aposta e declarar vencedor (apenas o criador pode fazer isso)\n    function finalizeBet(uint256 betId, uint256 winningOptionId) public {\n        Bet storage bet = bets[betId];\n\n        require(bet.active, \"Bet is not active\");\n        require(bet.creator == msg.sender, \"Only creator can finalize\");\n        require(winningOptionId < bet.optionsCount, \"Invalid winning option\");\n        require(bet.totalPool > FEE, \"Pool too small to finalize\");\n\n        bet.finalized = true;\n        bet.active = false;\n        bet.winningOption = winningOptionId;\n\n        emit BetFinalized(betId, winningOptionId);\n    }\n\n    // Retirar prêmio (para vencedores)\n    function withdrawPrize(uint256 betId) public {\n        Bet storage bet = bets[betId];\n\n        // Mandatory: only allow withdrawals after the bet has been finalized.\n        require(bet.finalized, \"Bet not finalized yet\");\n        uint256 userBet = bet.options[bet.winningOption].bets[msg.sender];\n        require(userBet > 0, \"You did not bet on winning option\");\n\n        uint256 winningPool = bet.options[bet.winningOption].totalBets;\n        uint256 prizePool = bet.totalPool - FEE;\n\n        // Calculate the user’s proportional prize\n        uint256 prize = (prizePool * userBet) / winningPool;\n\n        // Reset the user’s bet to prevent multiple withdrawals\n        bet.options[bet.winningOption].bets[msg.sender] = 0;\n\n        // Transfer using call — modern and secure approach.\n        // If the transfer fails (for example, if the recipient is a contract\n        // that reverts in its fallback/receive function), call will return success = false.\n        // We keep require(success) here as a safeguard against transfer failures.\n        (bool success, ) = payable(msg.sender).call{value: prize}(\"\");\n        require(success, \"Failed to send prize\");\n\n        emit PrizeWithdrawn(betId, msg.sender, prize);\n    }\n\n    // Retirar taxa da casa (apenas o criador da aposta)\n    function withdrawFee(uint256 betId) public {\n        Bet storage bet = bets[betId];\n\n        require(bet.finalized, \"Bet not finalized yet\");\n        require(bet.creator == msg.sender, \"Only creator can withdraw fee\");\n\n        uint256 feeAmount = FEE;\n        bet.totalPool -= FEE;\n\n        // Transfer using call — modern and secure approach.\n        // If the transfer fails (for example, if the recipient is a contract\n        // that reverts in its fallback/receive function), call will return success = false.\n        // We keep require(success) here as a safeguard against transfer failures.\n        (bool success, ) = payable(bet.creator).call{value: feeAmount}(\"\");\n        require(success, \"Failed to send fee\");\n    }\n\n    // Visualizar informações de uma opção\n    function getOptionInfo(\n        uint256 betId,\n        uint256 optionId\n    ) public view returns (string memory name, uint256 totalBets) {\n        Bet storage bet = bets[betId];\n        require(optionId < bet.optionsCount, \"Invalid option\");\n\n        return (bet.options[optionId].name, bet.options[optionId].totalBets);\n    }\n\n    // Visualizar quanto um usuário apostou em uma opção\n    function getUserBet(\n        uint256 betId,\n        uint256 optionId,\n        address user\n    ) public view returns (uint256) {\n        Bet storage bet = bets[betId];\n        require(optionId < bet.optionsCount, \"Invalid option\");\n\n        return bet.options[optionId].bets[user];\n    }\n\n    // Visualizar informações básicas da aposta\n    function getBetInfo(\n        uint256 betId\n    )\n        public\n        view\n        returns (\n            address creator,\n            string memory title,\n            string memory description,\n            uint256 totalPool,\n            bool active,\n            bool finalized,\n            uint256 optionsCount\n        )\n    {\n        Bet storage bet = bets[betId];\n        return (\n            bet.creator,\n            bet.title,\n            bet.description,\n            bet.totalPool,\n            bet.active,\n            bet.finalized,\n            bet.optionsCount\n        );\n    }\n}\n"
+      }
+    }
+  }
+}
