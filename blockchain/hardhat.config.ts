@@ -37,7 +37,7 @@ const config: HardhatUserConfig = {
       accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
     },
   },
-   verify: {
+  verify: {
     etherscan: {
       apiKey: configVariable("YOUR_ETHERSCAN_API_KEY"),
     },

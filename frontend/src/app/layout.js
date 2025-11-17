@@ -1,4 +1,3 @@
-import "bootstrap/dist/css/bootstrap.min.css";
 import "./globals.css";
 
 import { BetChainProvider } from "@/context/betChainContext";
@@ -14,9 +13,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-      <BetChainProvider>
-          {children}
-      </BetChainProvider>
+        <BetChainProvider>{children}</BetChainProvider>
       </body>
     </html>
   );

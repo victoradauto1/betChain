@@ -1,9 +1,9 @@
 "use client";
 
+import { ethers } from "ethers";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useBetChain } from "../context/betChainContext";
-import { useRouter } from "next/navigation";
-import { ethers } from "ethers";
 
 export default function Home() {
   const { contract, account, connectWallet } = useBetChain();
@@ -21,7 +21,8 @@ export default function Home() {
         const total = Number(nextId);
         const betsList = [];
 
-        for (let i = 1; i <= total; i++) { // IDs start from 1 in your contract
+        for (let i = 1; i <= total; i++) {
+          // IDs start from 1 in your contract
           const bet = await contract.methods.getBetInfo(i).call();
           betsList.push({
             id: i,
@@ -94,7 +95,9 @@ export default function Home() {
                 />
               )}
               <h3 className="text-lg font-semibold mb-1">{bet.title}</h3>
-              <p className="text-sm text-gray-400 mb-2 line-clamp-2">{bet.description}</p>
+              <p className="text-sm text-gray-400 mb-2 line-clamp-2">
+                {bet.description}
+              </p>
               <div className="flex justify-between items-center mt-3 text-sm text-gray-300">
                 <span>{bet.active ? "🟢 Active" : "🔴 Closed"}</span>
                 <span className="text-indigo-400">
