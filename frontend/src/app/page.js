@@ -59,7 +59,7 @@ export default function Home() {
         {/* Top-to-bottom black gradient */}
         <div
           className="absolute inset-0 bg-linear-to-b
- from-black via-black/80 to-transparent"
+          from-black via-black/80 to-transparent"
         ></div>
       </div>
 
@@ -67,10 +67,14 @@ export default function Home() {
       <div className="relative z-10 w-full flex flex-col items-center">
         <header className="w-full flex justify-between items-center max-w-6xl mb-10">
           <h1 className="text-3xl font-bold tracking-wide">🏆 BetChain</h1>
+
           {account ? (
-            <span className="text-sm bg-gray-800 px-4 py-2 rounded-xl">
-              {account.slice(0, 6)}...{account.slice(-4)}
-            </span>
+            <div className="flex flex-col text-right bg-gray-800/70 px-4 py-2 rounded-xl backdrop-blur-sm">
+              <span className="text-xs text-gray-300">Welcome</span>
+              <span className="text-sm font-semibold">
+                {account.slice(0, 6)}...{account.slice(-4)}
+              </span>
+            </div>
           ) : (
             <button
               onClick={connectWallet}
