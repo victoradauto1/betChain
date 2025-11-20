@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useBetChain } from "../context/betChainContext";
 
+
 export default function Home() {
   const { contract, account, connectWallet } = useBetChain();
   const [bets, setBets] = useState([]);
@@ -88,7 +89,7 @@ export default function Home() {
         <div className="w-full max-w-6xl flex justify-between items-center mb-6">
           <h2 className="text-2xl font-semibold">Active Bets</h2>
           <button
-            onClick={() => router.push("/create")}
+            onClick={() => router.push("/createBet")}
             className="bg-green-600 hover:bg-green-500 px-4 py-2 rounded-xl text-sm font-semibold"
           >
             + Create Bet
