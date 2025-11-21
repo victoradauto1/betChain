@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import PageTitle from "@/componets/PageTitle";
 
 export default function CreateBet() {
   const [title, setTitle] = useState("");
@@ -77,7 +78,8 @@ export default function CreateBet() {
 
       {/* CONTENT ABOVE BACKGROUND */}
       <div className="relative z-10 w-full flex flex-col items-center px-4 py-10">
-        <h1 className="text-3xl font-bold mb-8">Create a New Bet</h1>
+        <PageTitle  shine>🏆 BetChain | Create a New Bet</PageTitle>
+        {/* <h1 className="text-3xl font-bold mb-8">Create a New Bet</h1> */}
 
         <div className="bg-green-600 p-8 rounded-xl shadow-xl max-w-xl w-full">
           <form onSubmit={handleSubmit} className="space-y-6">

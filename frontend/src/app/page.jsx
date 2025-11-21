@@ -4,6 +4,7 @@ import { ethers } from "ethers";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useBetChain } from "../context/betChainContext";
+import PageTitle from "@/componets/PageTitle";
 
 
 export default function Home() {
@@ -67,7 +68,8 @@ export default function Home() {
       {/* All content stays above background */}
       <div className="relative z-10 w-full flex flex-col items-center">
         <header className="w-full flex justify-between items-center max-w-6xl mb-10">
-          <h1 className="text-3xl font-bold tracking-wide">🏆 BetChain</h1>
+
+          <PageTitle  shine>🏆 BetChain</PageTitle>
 
           {account ? (
             <div className="flex flex-col text-right bg-gray-800/70 px-4 py-2 rounded-xl backdrop-blur-sm">
