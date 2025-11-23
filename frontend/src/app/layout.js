@@ -1,6 +1,6 @@
 import "./globals.css";
 
-import { BetChainProvider } from "@/context/betChainContext";
+import { BetChainProvider } from "../context/betChainContext";
 
 export const metadata = {
   title: "BetCandidate",

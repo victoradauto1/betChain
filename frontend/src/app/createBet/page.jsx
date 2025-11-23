@@ -1,7 +1,7 @@
 "use client";
 
+import PageTitle from "../../components/PageTitle";
 import { useState } from "react";
-import PageTitle from "@/componets/PageTitle";
 
 export default function CreateBet() {
   const [title, setTitle] = useState("");
@@ -25,12 +25,11 @@ export default function CreateBet() {
 
   return (
     <div className="min-h-screen w-full text-white flex flex-col items-center relative overflow-hidden">
-
       {/* 🔥 BACK TO HOME BUTTON */}
-     <div className="absolute top-6 left-6 z-20">
-  <a
-    href="/"
-    className="
+      <div className="absolute top-6 left-6 z-20">
+        <a
+          href="/"
+          className="
       flex items-center justify-center
       w-10 h-10
       rounded-lg 
@@ -41,27 +40,25 @@ export default function CreateBet() {
       transition 
       shadow-md
     "
-  >
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 26"
-      strokeWidth="2.6"   // mais grosso
-      stroke="currentColor"
-      className="w-6 h-6"
-    >
-      <g transform="translate(0, 2)">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M19 5c0 6-6 6-6 6H5m0 0l4-4m-4 4l4 4"
-        />
-      </g>
-    </svg>
-  </a>
-</div>
-
-
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 26"
+            strokeWidth="2.6" // mais grosso
+            stroke="currentColor"
+            className="w-6 h-6"
+          >
+            <g transform="translate(0, 2)">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M19 5c0 6-6 6-6 6H5m0 0l4-4m-4 4l4 4"
+              />
+            </g>
+          </svg>
+        </a>
+      </div>
 
       {/* 🔥 BACKGROUND EXACTLY LIKE HOME */}
       <div className="absolute inset-0 bg-gray-950">
@@ -78,12 +75,11 @@ export default function CreateBet() {
 
       {/* CONTENT ABOVE BACKGROUND */}
       <div className="relative z-10 w-full flex flex-col items-center px-4 py-10">
-        <PageTitle  shine>🏆 BetChain | Create a New Bet</PageTitle>
+        <PageTitle shine>🏆 BetChain | Create a New Bet</PageTitle>
         {/* <h1 className="text-3xl font-bold mb-8">Create a New Bet</h1> */}
 
         <div className="bg-green-600 p-8 rounded-xl shadow-xl max-w-xl w-full">
           <form onSubmit={handleSubmit} className="space-y-6">
-
             {/* TITLE */}
             <div>
               <label className="block text-white font-semibold mb-1">

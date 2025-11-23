@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import PageTitle from "../../../componets/PageTitle";
+import { useEffect, useState } from "react";
+import PageTitle from "../../../components/PageTitle";
 
 export default function BetDetails({ params }) {
   const { id } = params;
@@ -61,7 +61,7 @@ export default function BetDetails({ params }) {
         ↩
       </Link>
 
-      <PageTitle shine >BetCain | Details {bet.id}</PageTitle> 
+      <PageTitle shine>BetCain | Details {bet.id}</PageTitle>
 
       <div className="w-full max-w-2xl mt-6 bg-zinc-900 p-6 rounded-2xl shadow-xl border border-zinc-700">
         <h2 className="text-xl font-bold mb-3">{bet.title}</h2>

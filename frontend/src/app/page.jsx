@@ -4,7 +4,7 @@ import { ethers } from "ethers";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useBetChain } from "../context/betChainContext";
-import PageTitle from "@/componets/PageTitle";
+import PageTitle from "../components/PageTitle";
 
 
 export default function Home() {
