@@ -2,7 +2,7 @@ export default function Footer() {
   return (
     <footer className="d-flex flex-wrap justify-content-between align-align-items-center py-3 my-4 border-top">
       <p className="col-4 mb-0 text-body-secondary">
-        &copy; 2024 BetCandidate, Inc
+        &copy; 2025 BetChain, Inc
       </p>
       <ul className="nav col-4 justify-content-end">
         <li className="nav-item">
