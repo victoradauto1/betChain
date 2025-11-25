@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import PageTitle from "@/src/componets/PageTitle.jsx";
+import PageTitle from "../../components/PageTitle"
 import { useEffect, useState } from "react";
 
 export default function AllBets() {

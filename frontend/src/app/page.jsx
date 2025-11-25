@@ -108,7 +108,7 @@ export default function Home() {
               <div
                 key={bet.id}
                 className="bg-gray-900/70 backdrop-blur-sm p-5 rounded-2xl shadow-md hover:shadow-indigo-600/30 transition cursor-pointer"
-                onClick={() => router.push(`/bet/${bet.id}`)}
+                onClick={() => router.push(`/betDetails/${bet.id}`)}
               >
                 {bet.imageUrl && (
                   <img

@@ -1,6 +1,7 @@
 import "./globals.css";
 
 import { BetChainProvider } from "../context/betChainContext";
+import Footer from "../components/Footer";
 
 export const metadata = {
   title: "BetCandidate",
@@ -12,8 +13,11 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>
-        <BetChainProvider>{children}</BetChainProvider>
+      <body className="bg-black text-white min-h-screen flex flex-col">
+        <BetChainProvider>
+          <main className="flex-1">{children}</main>
+          <Footer />
+        </BetChainProvider>
       </body>
     </html>
   );
