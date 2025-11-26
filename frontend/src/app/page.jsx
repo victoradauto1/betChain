@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { useBetChain } from "../context/betChainContext";
 import PageTitle from "../components/PageTitle";
 
-
 export default function Home() {
   const { contract, account, connectWallet } = useBetChain();
   const [bets, setBets] = useState([]);
@@ -21,25 +20,83 @@ export default function Home() {
       try {
         const nextId = await contract.methods.nextId().call();
         const total = Number(nextId);
+        
+        console.log("📊 NextId from contract:", total); // Debug log
+        
         const betsList = [];
 
-        for (let i = 1; i <= total; i++) {
-          const bet = await contract.methods.getBetInfo(i).call();
-          betsList.push({
-            id: i,
-            creator: bet.creator,
-            title: bet.title,
-            description: bet.description,
-            imageUrl: bet.imageUrl,
-            totalPool: bet.totalPool,
-            active: bet.active,
-            finalized: bet.finalized,
-          });
+        for (let i = 1; i < total; i++) {
+          try {
+            const bet = await contract.methods.getBetInfo(i).call();
+            betsList.push({
+              id: i,
+              creator: bet.creator,
+              title: bet.title,
+              description: bet.description,
+              imageUrl: bet.imageUrl,
+              totalPool: bet.totalPool,
+              active: bet.active,
+              finalized: bet.finalized,
+            });
+          } catch (err) {
+            console.error(`Error loading bet ${i}:`, err);
+          }
+        }
+
+        // 🎭 MOCK TEMPORÁRIO - Remove quando tiver bets reais no contrato
+        if (betsList.length === 0) {
+          console.log("⚠️ No bets found in contract, using mock data");
+          betsList.push(
+            {
+              id: 1,
+              creator: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
+              title: "Champions League Winner 2025",
+              description: "Who will win the UEFA Champions League this season?",
+              imageUrl: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=400",
+              totalPool: ethers.parseEther("1.24").toString(),
+              active: true,
+              finalized: false,
+            },
+            {
+              id: 2,
+              creator: "0x123d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
+              title: "UFC 300 Main Event",
+              description: "Predict the winner and method of victory",
+              imageUrl: "https://images.unsplash.com/photo-1555597673-b21d5c935865?w=400",
+              totalPool: ethers.parseEther("0.82").toString(),
+              active: true,
+              finalized: false,
+            },
+            {
+              id: 3,
+              creator: "0x456d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
+              title: "Formula 1 Monaco GP",
+              description: "Who will stand on the podium?",
+              imageUrl: "https://images.unsplash.com/photo-1541443131876-44b03de101c5?w=400",
+              totalPool: ethers.parseEther("2.15").toString(),
+              active: false,
+              finalized: true,
+            }
+          );
         }
 
         setBets(betsList.reverse()); // Most recent first
       } catch (err) {
-        console.error("Error loading bets:", err);
+        console.error("❌ Error loading bets:", err);
+        
+        // Fallback para mock em caso de erro
+        setBets([
+          {
+            id: 1,
+            creator: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
+            title: "Champions League Winner 2025",
+            description: "Who will win the UEFA Champions League this season?",
+            imageUrl: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=400",
+            totalPool: ethers.parseEther("1.24").toString(),
+            active: true,
+            finalized: false,
+          }
+        ]);
       } finally {
         setLoading(false);
       }
@@ -52,13 +109,10 @@ export default function Home() {
     <div className="min-h-screen text-white flex flex-col items-center px-6 py-10 relative overflow-hidden">
       {/* Background Layer */}
       <div className="absolute inset-0 bg-gray-950">
-        {/* Stadium Image */}
         <div
           className="absolute inset-0 bg-[url('/images/stadiumBet.png')]
                      bg-cover bg-center opacity-20 mix-blend-lighten grayscale"
         ></div>
-
-        {/* Top-to-bottom black gradient */}
         <div
           className="absolute inset-0 bg-linear-to-b
           from-black via-black/80 to-transparent"
@@ -68,8 +122,7 @@ export default function Home() {
       {/* All content stays above background */}
       <div className="relative z-10 w-full flex flex-col items-center">
         <header className="w-full flex justify-between items-center max-w-6xl mb-10">
-
-          <PageTitle  shine>🏆 BetChain</PageTitle>
+          <PageTitle shine>🏆 BetChain</PageTitle>
 
           {account ? (
             <div className="flex flex-col text-right bg-gray-800/70 px-4 py-2 rounded-xl backdrop-blur-sm">
@@ -124,7 +177,7 @@ export default function Home() {
                 <div className="flex justify-between items-center mt-3 text-sm text-gray-300">
                   <span>{bet.active ? "🟢 Active" : "🔴 Closed"}</span>
                   <span className="text-indigo-400">
-                    Balance: {ethers.formatEther(bet.totalPool)} ETH
+                    Pool: {ethers.formatEther(bet.totalPool)} ETH
                   </span>
                 </div>
               </div>
