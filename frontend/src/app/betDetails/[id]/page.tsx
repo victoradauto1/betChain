@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import PageTitle from "../../../components/PageTitle";
+import OraclePrice from "../../../components/OraclePrice"; // ⬅️ ADD
 
 export default function BetDetails({ params }) {
   const { id } = params;
@@ -14,7 +15,6 @@ export default function BetDetails({ params }) {
   useEffect(() => {
     async function fetchBet() {
       try {
-        // Replace this with actual blockchain or backend call
         const dummyBet = {
           id,
           title: "Example Bet Title",
@@ -53,7 +53,12 @@ export default function BetDetails({ params }) {
 
   return (
     <div className="min-h-screen w-full bg-black text-white flex flex-col items-center px-4 py-10">
-      {/* Back Button */}
+
+      {/* Oracle Price ⬇️ */}
+      <div className="mb-6">
+        <OraclePrice />
+      </div>
+
       <Link
         href="/allBets"
         className="text-4xl mb-6 hover:scale-110 transition-transform"

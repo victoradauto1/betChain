@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useBetChain } from "../context/betChainContext";
 import PageTitle from "../components/PageTitle";
+import OraclePrice from "../components/OraclePrice"; // ⬅️ ADD
 
 export default function Home() {
   const { contract, account, connectWallet } = useBetChain();
@@ -12,7 +13,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  // 🔄 Load all existing bets from the contract
   useEffect(() => {
     const loadBets = async () => {
       if (!contract) return;
@@ -20,9 +20,9 @@ export default function Home() {
       try {
         const nextId = await contract.methods.nextId().call();
         const total = Number(nextId);
-        
-        console.log("📊 NextId from contract:", total); // Debug log
-        
+
+        console.log("📊 NextId from contract:", total);
+
         const betsList = [];
 
         for (let i = 1; i < total; i++) {
@@ -43,7 +43,6 @@ export default function Home() {
           }
         }
 
-        // 🎭 MOCK TEMPORÁRIO - Remove quando tiver bets reais no contrato
         if (betsList.length === 0) {
           console.log("⚠️ No bets found in contract, using mock data");
           betsList.push(
@@ -80,11 +79,10 @@ export default function Home() {
           );
         }
 
-        setBets(betsList.reverse()); // Most recent first
+        setBets(betsList.reverse());
       } catch (err) {
         console.error("❌ Error loading bets:", err);
-        
-        // Fallback para mock em caso de erro
+
         setBets([
           {
             id: 1,
@@ -107,7 +105,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen text-white flex flex-col items-center px-6 py-10 relative overflow-hidden">
-      {/* Background Layer */}
+
       <div className="absolute inset-0 bg-gray-950">
         <div
           className="absolute inset-0 bg-[url('/images/stadiumBet.png')]
@@ -119,7 +117,6 @@ export default function Home() {
         ></div>
       </div>
 
-      {/* All content stays above background */}
       <div className="relative z-10 w-full flex flex-col items-center">
         <header className="w-full flex justify-between items-center max-w-6xl mb-10">
           <PageTitle shine>🏆 BetChain</PageTitle>
@@ -141,8 +138,12 @@ export default function Home() {
           )}
         </header>
 
+        {/* Title + OraclePrice */}
         <div className="w-full max-w-6xl flex justify-between items-center mb-6">
           <h2 className="text-2xl font-semibold">Active Bets</h2>
+
+          <OraclePrice /> {/* ⬅️ ADD */}
+
           <button
             onClick={() => router.push("/createBet")}
             className="bg-green-600 hover:bg-green-500 px-4 py-2 rounded-xl text-sm font-semibold"

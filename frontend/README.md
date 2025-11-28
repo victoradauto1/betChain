@@ -35,3 +35,16 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 # betChain
+
+## 🔗 External API Integration (CoinGecko)
+
+This project uses the public **CoinGecko API** to fetch and display the real-time price of ETH in USD.  
+The integration is performed directly from the frontend using `fetch`, with automatic updates every 60 seconds.
+
+**Service file:**  
+`/src/services/priceService.js`
+
+**UI Component:**  
+`/src/components/OraclePrice.jsx`
+
+This feature demonstrates the ability to integrate external APIs, manage async data loading, and build modular UI components—important skills for frontend and Web3 developers.
