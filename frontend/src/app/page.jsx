@@ -4,8 +4,7 @@ import { ethers } from "ethers";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useBetChain } from "../context/betChainContext";
-import PageTitle from "../components/PageTitle";
-import OraclePrice from "../components/OraclePrice"; // ⬅️ ADD
+import PageHeaderActions from "../components/PageHeaderActions";
 
 export default function Home() {
   const { contract, account, connectWallet } = useBetChain();
@@ -118,39 +117,8 @@ export default function Home() {
       </div>
 
       <div className="relative z-10 w-full flex flex-col items-center">
-        <header className="w-full flex justify-between items-center max-w-6xl mb-10">
-          <PageTitle shine>🏆 BetChain</PageTitle>
-
-          {account ? (
-            <div className="flex flex-col text-right bg-gray-800/70 px-4 py-2 rounded-xl backdrop-blur-sm">
-              <span className="text-xs text-gray-300">Welcome</span>
-              <span className="text-sm font-semibold">
-                {account.slice(0, 6)}...{account.slice(-4)}
-              </span>
-            </div>
-          ) : (
-            <button
-              onClick={connectWallet}
-              className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-xl text-sm font-semibold"
-            >
-              Connect Wallet
-            </button>
-          )}
-        </header>
-
         {/* Title + OraclePrice */}
-        <div className="w-full max-w-6xl flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-semibold">Active Bets</h2>
-
-          <OraclePrice /> {/* ⬅️ ADD */}
-
-          <button
-            onClick={() => router.push("/createBet")}
-            className="bg-green-600 hover:bg-green-500 px-4 py-2 rounded-xl text-sm font-semibold"
-          >
-            + Create Bet
-          </button>
-        </div>
+        <PageHeaderActions title="Last Bets" isHome/>
 
         {loading ? (
           <p className="text-gray-400 mt-10">Loading bets...</p>
