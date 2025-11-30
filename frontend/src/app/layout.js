@@ -2,13 +2,14 @@ import "./globals.css";
 
 import { BetChainProvider } from "../context/betChainContext";
 import Footer from "../components/Footer";
-import Header from "../components/Header"
+import Header from "../components/Header";
 
 export const metadata = {
   title: "BetCandidate",
   description: "Bet on your best candidate!",
-  charSet: "utf-8",
-  content: "width=device-width, initial-scale=1",
+  icons: {
+    icon: "/icon.png"
+  },
 };
 
 export default function RootLayout({ children }) {
