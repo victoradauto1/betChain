@@ -63,8 +63,8 @@ export default function Footer() {
           </div>
 
           <p className="text-center text-sm leading-relaxed max-w-2xl text-gray-500">
-            <strong className="text-gray-300">Jogue com responsabilidade!</strong><br />
-            O jogo pode ser prejudicial se não for controlado.
+            <strong className="text-gray-300">Play responsibly!</strong><br />
+            Gambling can be harmful if not kept under control.
           </p>
 
         </div>

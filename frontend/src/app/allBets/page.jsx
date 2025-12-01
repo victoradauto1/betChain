@@ -57,7 +57,7 @@ export default function AllBets() {
       <div className="relative z-10 w-full max-w-6xl px-6 py-10">
 
         {/* Return button + Title */}
-       <PageHeaderActions title="All Bets" />
+       <PageHeaderActions title="All Bets" action="return"/>
 
         {/* Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

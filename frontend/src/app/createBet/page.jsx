@@ -22,13 +22,12 @@ export default function CreateBet() {
       {/* BACKGROUND */}
       <div className="absolute inset-0 bg-gray-950">
         <div className="absolute inset-0 bg-[url('/images/stadiumBet.png')] bg-cover bg-center opacity-20 mix-blend-lighten grayscale"></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-black via-black/80 to-transparent"></div>
+        <div className="absolute inset-0 bg-linear-to-b from-black via-black/80 to-transparent"></div>
       </div>
 
       {/* FORM WRAPPER */}
       <div className="relative z-10 w-full max-w-2xl px-4 py-10">
 
-        {/* HEADER ALINHADO AOS CANTOS DO CARD */}
         <div className="w-full flex justify-between items-center mb-4 px-2">
           <h2 className="text-2xl font-semibold">Create a Bet</h2>
 

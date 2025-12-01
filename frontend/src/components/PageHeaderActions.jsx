@@ -12,7 +12,7 @@ export default function PageHeaderActions({
   const router = useRouter();
 
   return (
-    <div className="w-full max-w-6xl flex justify-between items-center mb-6">
+    <div className="w-full max-w-6xl flex justify-between items-center mb-6 px-4">
       {/* PAGE TITLE */}
       <h2 className="text-2xl font-semibold">{title}</h2>
 
