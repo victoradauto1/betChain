@@ -10,7 +10,7 @@ export default function PageTitle({ children, glow = false, shine = false }) {
   return (
     <h1
       className={`
-        text-5xl                   /* Larger, more professional title size */
+        text-6xl                   /* Larger, more professional title size */
         font-extrabold            /* Stronger typography */
         tracking-tight            /* Cleaner spacing between letters */
         mb-10                     /* More breathing room */

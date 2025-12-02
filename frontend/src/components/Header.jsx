@@ -23,10 +23,10 @@ export default function Header() {
 
   return (
     <div className="w-full flex justify-center pt-10"> {/* keeps top spacing identical */}
-      <header className="w-full flex justify-between items-center max-w-6xl mb-10 px-6">
+      <header className="w-full flex justify-between items-center max-w-6xl mb-10 px-6" >
         {/* Title: clickable, links to home */}
-        <Link href="/" className="hover:opacity-90 transition">
-          <PageTitle shine>🏆 BetChain</PageTitle>
+        <Link href="/" className="hover:opacity-90 transition ">
+          <PageTitle >BetChain</PageTitle>
         </Link>
 
         {/* Wallet / Welcome block (interactive) */}
