@@ -3,7 +3,7 @@ export default function About() {
     <div className="max-w-4xl mx-auto px-6 py-16 text-gray-300">
       
       <h1 className="text-4xl font-bold mb-6 text-white">
-        About <span className="text-emerald-400">BetChain</span>
+        About <span className="text-indigo-400">BetChain</span>
       </h1>
 
       <p className="text-lg leading-relaxed mb-8">

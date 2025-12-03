@@ -123,7 +123,6 @@ export default function Home() {
       </div>
 
       <div className="relative z-10 w-full flex flex-col items-center">
-        {/* Title + OraclePrice */}
         <PageHeaderActions title="Last Bets" isHome />
 
         {loading ? (
@@ -132,7 +131,6 @@ export default function Home() {
           <p className="text-gray-400 mt-10">No bets found yet.</p>
         ) : (
           <>
-            {/* GRID */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
               {bets.slice(0, 3).map((bet) => (
                 <div
@@ -161,14 +159,19 @@ export default function Home() {
               ))}
             </div>
 
-            {/* VIEW ALL BUTTON */}
             <div className="mt-8">
-              <Link
-                href="/allBets"
-                className="px-6 py-2 rounded-xl text-sm font-semibold border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black transition"
-              >
-                View All
-              </Link>
+            <Link
+  href="/allBets"
+  className="
+    px-6 py-2 rounded-xl text-sm font-semibold
+    border border-indigo-400 text-indigo-400
+    hover:bg-indigo-600 hover:text-white
+    transition
+  "
+>
+  View All
+</Link>
+
             </div>
           </>
         )}
