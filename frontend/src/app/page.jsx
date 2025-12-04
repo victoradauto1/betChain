@@ -92,8 +92,7 @@ export default function Home() {
             id: 1,
             creator: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
             title: "Champions League Winner 2025",
-            description:
-              "Who will win the UEFA Champions League this season?",
+            description: "Who will win the UEFA Champions League this season?",
             imageUrl:
               "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=400",
             totalPool: ethers.parseEther("1.24").toString(),
@@ -160,18 +159,17 @@ export default function Home() {
             </div>
 
             <div className="mt-8">
-            <Link
-  href="/allBets"
-  className="
+              <Link
+                href="/allBets"
+                className="
     px-6 py-2 rounded-xl text-sm font-semibold
     border border-indigo-400 text-indigo-400
     hover:bg-indigo-600 hover:text-white
     transition
   "
->
-  View All
-</Link>
-
+              >
+                View All
+              </Link>
             </div>
           </>
         )}
