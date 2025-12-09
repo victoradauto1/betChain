@@ -3,13 +3,22 @@
     "target": "ES2020",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
     "strict": true,
     "skipLibCheck": true,
-    "types": ["mocha", "node", "chai", "hardhat"]
   },
-  "include": ["./scripts", "./test", "./typechain-types"],
+
+  "include": [
+    "./hardhat.config.ts",
+    "./scripts",
+    "./test",
+    "./typechain-types",
+    "node_modules/@nomicfoundation/hardhat-ethers/types",
+    "node_modules/@nomicfoundation/hardhat-ethers-chai-matchers/types",
+    "node_modules/@nomicfoundation/hardhat-toolbox-mocha-ethers/types"
+  ],
+
   "exclude": ["node_modules"]
 }
