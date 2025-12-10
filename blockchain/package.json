@@ -1,34 +1,25 @@
 {
   "name": "blockchain",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "license": "ISC",
   "scripts": {
     "test": "npx hardhat test",
-    "coverage": "npx hardhat coverage",
     "compile": "npx hardhat compile",
-    "deploy": "npx hardhat ignition deploy ignition/modules/BetChain.ts --network sepolia"
+    "deploy": "npx hardhat run scripts/deploy.ts --network sepolia"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
-    "@nomicfoundation/hardhat-ethers": "^4.0.3",
-    "@nomicfoundation/hardhat-ignition": "^3.0.5",
-    "@nomicfoundation/hardhat-toolbox-mocha-ethers": "^3.0.1",
-    "@types/chai": "^4.3.20",
-    "@types/chai-as-promised": "^8.0.2",
-    "@types/mocha": "^10.0.10",
-    "@types/node": "^22.19.0",
-    "chai": "^5.3.3",
-    "ethers": "^6.15.0",
-    "forge-std": "github:foundry-rs/forge-std#v1.9.4",
-    "hardhat": "^3.0.12",
-    "mocha": "^11.7.5",
-    "typescript": "~5.8.0"
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@types/chai": "^4.3.5",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^22.19.2",
+    "chai": "^4.3.7",
+    "hardhat": "^2.26.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
   },
-  "type": "module",
   "dependencies": {
-    "@openzeppelin/contracts": "^5.4.0"
+    "@openzeppelin/contracts": "^5.0.0",
+    "dotenv": "^17.2.3",
+    "ethers": "^6.10.0"
   }
 }

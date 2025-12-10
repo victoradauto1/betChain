@@ -1,11 +1,8 @@
 import { HardhatUserConfig } from "hardhat/config";
+import "@nomicfoundation/hardhat-toolbox";
+import * as dotenv from "dotenv";
 
-// Plugins corretos para Hardhat 3.x
-import "@nomicfoundation/hardhat-ethers";
-import "@nomicfoundation/hardhat-ethers-chai-matchers";
-import "@nomicfoundation/hardhat-toolbox-mocha-ethers";
-
-import { configVariable } from "hardhat/config";
+dotenv.config();
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -20,10 +17,10 @@ const config: HardhatUserConfig = {
 
   networks: {
     sepolia: {
-      url: configVariable("SEPOLIA_RPC_URL"),
-      accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
-      type: "http",
-      chainType: "l1",
+      url: process.env.SEPOLIA_RPC_URL || "",
+      accounts: process.env.SEPOLIA_PRIVATE_KEY
+        ? [process.env.SEPOLIA_PRIVATE_KEY]
+        : [],
     },
   },
 };
