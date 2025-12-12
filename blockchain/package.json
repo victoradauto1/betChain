@@ -4,6 +4,7 @@
   "license": "ISC",
   "scripts": {
     "test": "npx hardhat test",
+    "coverage": "npx hardhat coverage",
     "compile": "npx hardhat compile",
     "deploy": "npx hardhat run scripts/deploy.ts --network sepolia"
   },
