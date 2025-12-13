@@ -15,9 +15,14 @@
 
 # Typechain output
 /types
+typechain-types/
 
 # Hardhat coverage reports
 /coverage
+coverage.json
+
+# Hardhat temp files
+hardhat-network-*
 
 # Environment variables
 .env

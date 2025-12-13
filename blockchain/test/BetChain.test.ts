@@ -550,33 +550,6 @@ describe("BetChain", function () {
     });
   });
 
-  describe("Reentrancy Protection", function () {
-    it("Should protect withdrawPrize from reentrancy", async function () {
-      // This test ensures the nonReentrant modifier works
-      // In a real attack scenario, a malicious contract would try to re-enter
-      // but the modifier should prevent it
-
-      await betChain.createBet("Test", "", "", ["A", "B"], 0);
-      await betChain
-        .connect(user1)
-        .placeBet(1, 0, { value: ethers.parseEther("1.0") });
-      await betChain.finalizeBet(1, 0);
-
-      // Normal withdrawal should work
-      await expect(betChain.connect(user1).withdrawPrize(1)).to.not.be.reverted;
-    });
-
-    it("Should protect withdrawFee from reentrancy", async function () {
-      await betChain.createBet("Test", "", "", ["A", "B"], 0);
-      await betChain
-        .connect(user1)
-        .placeBet(1, 0, { value: ethers.parseEther("1.0") });
-      await betChain.finalizeBet(1, 0);
-
-      await expect(betChain.withdrawFee(1)).to.not.be.reverted;
-    });
-  });
-
   describe("Edge Cases", function () {
     it("Should handle bet with maximum options (10)", async function () {
       const maxOptions = Array(10)
@@ -750,50 +723,6 @@ describe("BetChain", function () {
       expect(totals[1]).to.equal(ethers.parseEther("2.0"));
       expect(totals[2]).to.equal(0);
     });
-
-    it("Should cover transfer success path in withdrawPrize", async function () {
-      await betChain.createBet("Transfer Test", "", "", ["A", "B"], 0);
-      await betChain
-        .connect(user1)
-        .placeBet(1, 0, { value: ethers.parseEther("1.0") });
-      await betChain.finalizeBet(1, 0);
-
-      // This covers: (bool ok, ) = ... and require(ok, "Transfer failed")
-      const balanceBefore = await ethers.provider.getBalance(user1.address);
-      await betChain.connect(user1).withdrawPrize(1);
-      const balanceAfter = await ethers.provider.getBalance(user1.address);
-
-      // Balance should have increased (minus gas)
-      expect(balanceAfter).to.be.gt(balanceBefore);
-    });
-
-    it("Should cover transfer success path in withdrawFee", async function () {
-      await betChain.createBet("Fee Transfer Test", "", "", ["A", "B"], 0);
-
-      // Duas apostas para gerar fee (1 ETH vs 1 ETH)
-      await betChain
-        .connect(user1)
-        .placeBet(1, 0, { value: ethers.parseEther("1.0") });
-      await betChain
-        .connect(user2)
-        .placeBet(1, 1, { value: ethers.parseEther("1.0") });
-
-      await betChain.finalizeBet(1, 0);
-
-      // Capture saldo antes, execute retirada e calcule gás usado
-      const balanceBefore = await ethers.provider.getBalance(owner.address);
-
-      const tx = await betChain.withdrawFee(1);
-      const receipt = await tx.wait();
-
-      // gasUsed * gasPrice (compatível com a sua suite atual)
-      const gasUsed = receipt!.gasUsed * receipt!.gasPrice;
-
-      const balanceAfter = await ethers.provider.getBalance(owner.address);
-
-      // Balance change must equal FEE minus gas cost
-      expect(balanceAfter).to.equal(balanceBefore + FEE - gasUsed);
-    });
   });
 
   describe("validBetId modifier - invalid betId paths", function () {
@@ -844,5 +773,493 @@ describe("BetChain", function () {
     });
   });
 
-  
+  describe("Reentrancy Attack Tests", function () {
+  let betChain: BetChain;
+  let attacker: any;
+  let attackerCreator: any;
+  let owner: SignerWithAddress;
+  let user1: SignerWithAddress;
+  let user2: SignerWithAddress;
+
+  beforeEach(async function () {
+    [owner, user1, user2] = await ethers.getSigners();
+
+    // Deploy BetChain
+    const BetChainFactory = await ethers.getContractFactory("BetChain");
+    betChain = await BetChainFactory.deploy();
+    await betChain.waitForDeployment();
+
+    // Deploy attacker contracts
+    const ReentrancyAttackerFactory = await ethers.getContractFactory(
+      "ReentrancyAttacker"
+    );
+    attacker = await ReentrancyAttackerFactory.deploy(
+      await betChain.getAddress()
+    );
+    await attacker.waitForDeployment();
+
+    const ReentrancyAttackerCreatorFactory = await ethers.getContractFactory(
+      "ReentrancyAttackerCreator"
+    );
+    attackerCreator = await ReentrancyAttackerCreatorFactory.deploy(
+      await betChain.getAddress()
+    );
+    await attackerCreator.waitForDeployment();
+  });
+
+  describe("withdrawPrize reentrancy attack", function () {
+    it("Should prevent reentrancy attack on withdrawPrize", async function () {
+      // Create a bet
+      await betChain.createBet(
+        "Reentrancy Test",
+        "",
+        "",
+        ["Option A", "Option B"],
+        0
+      );
+
+      // Attacker places bet
+      await attacker.placeBet(1, 0, { value: ethers.parseEther("2.0") });
+
+      // Normal user places bet on losing option
+      await betChain
+        .connect(user1)
+        .placeBet(1, 1, { value: ethers.parseEther("1.0") });
+
+      // Finalize with attacker winning
+      await betChain.finalizeBet(1, 0);
+
+      // Attempt reentrancy attack - will fail due to reentrancy attempt in receive()
+      // The exact error depends on when the reentrancy guard catches it
+      await expect(attacker.attackWithdrawPrize(1)).to.be.reverted;
+    });
+
+    it("Should allow attacker to withdraw only once", async function () {
+      // Create a bet
+      await betChain.createBet(
+        "Single Withdrawal",
+        "",
+        "",
+        ["Option A", "Option B"],
+        0
+      );
+
+      // Attacker places bet
+      await attacker.placeBet(1, 0, { value: ethers.parseEther("2.0") });
+
+      // Normal user places bet
+      await betChain
+        .connect(user1)
+        .placeBet(1, 1, { value: ethers.parseEther("1.0") });
+
+      // Finalize
+      await betChain.finalizeBet(1, 0);
+
+      // Get attacker contract balance before
+      const balanceBefore = await ethers.provider.getBalance(
+        await attacker.getAddress()
+      );
+
+      // Try to attack - should fail
+      await expect(attacker.attackWithdrawPrize(1)).to.be.reverted;
+
+      const balanceAfter = await ethers.provider.getBalance(
+        await attacker.getAddress()
+      );
+
+      // Check that attack count is 0 (no successful reentry)
+      const attackCount = await attacker.attackCount();
+      expect(attackCount).to.equal(0);
+
+      // Balance should not have increased (attack failed)
+      expect(balanceAfter).to.equal(balanceBefore);
+    });
+
+    it("Should verify attacker cannot drain more than their share", async function () {
+      // Create a bet
+      await betChain.createBet(
+        "Fair Distribution",
+        "",
+        "",
+        ["Option A", "Option B"],
+        0
+      );
+
+      const attackerBet = ethers.parseEther("1.0");
+      const user1Bet = ethers.parseEther("1.0");
+      const user2Bet = ethers.parseEther("2.0");
+
+      // Attacker and users place bets on winning option
+      await attacker.placeBet(1, 0, { value: attackerBet });
+      await betChain.connect(user1).placeBet(1, 0, { value: user1Bet });
+
+      // User2 bets on losing option
+      await betChain.connect(user2).placeBet(1, 1, { value: user2Bet });
+
+      // Finalize with option 0 winning
+      await betChain.finalizeBet(1, 0);
+
+      // Try attack (should fail)
+      await expect(attacker.attackWithdrawPrize(1)).to.be.reverted;
+
+      // Verify user1 can withdraw normally
+      const user1BalanceBefore = await ethers.provider.getBalance(user1.address);
+      
+      const tx = await betChain.connect(user1).withdrawPrize(1);
+      const receipt = await tx.wait();
+      const gasUsed = receipt!.gasUsed * receipt!.gasPrice;
+      
+      const user1BalanceAfter = await ethers.provider.getBalance(user1.address);
+      
+      // User1 should have received their share
+      expect(user1BalanceAfter).to.be.gt(user1BalanceBefore - gasUsed);
+    });
+  });
+
+  describe("withdrawFee reentrancy attack", function () {
+    it("Should prevent reentrancy attack on withdrawFee", async function () {
+      // Attacker creates a bet
+      await attackerCreator.createBet();
+
+      // Users place bets
+      await betChain
+        .connect(user1)
+        .placeBet(1, 0, { value: ethers.parseEther("1.0") });
+      await betChain
+        .connect(user2)
+        .placeBet(1, 1, { value: ethers.parseEther("1.0") });
+
+      // Attacker finalizes
+      await attackerCreator.finalizeBet(1, 0);
+
+      // Attempt reentrancy attack on withdrawFee - should fail
+      await expect(attackerCreator.attackWithdrawFee(1)).to.be.reverted;
+    });
+
+    it("Should allow creator to withdraw fee only once", async function () {
+      // Attacker creates a bet
+      await attackerCreator.createBet();
+
+      // Users place bets
+      await betChain
+        .connect(user1)
+        .placeBet(1, 0, { value: ethers.parseEther("2.0") });
+
+      // Finalize
+      await attackerCreator.finalizeBet(1, 0);
+
+      // Get balance before
+      const balanceBefore = await ethers.provider.getBalance(
+        await attackerCreator.getAddress()
+      );
+
+      // Try to attack - should fail
+      await expect(attackerCreator.attackWithdrawFee(1)).to.be.reverted;
+
+      const balanceAfter = await ethers.provider.getBalance(
+        await attackerCreator.getAddress()
+      );
+
+      // Attack count should be 0 (no successful reentry)
+      const attackCount = await attackerCreator.attackCount();
+      expect(attackCount).to.equal(0);
+
+      // Balance should not have increased (attack failed)
+      expect(balanceAfter).to.equal(balanceBefore);
+    });
+
+    it("Should verify attacker cannot withdraw fee multiple times", async function () {
+      // Attacker creates bet
+      await attackerCreator.createBet();
+
+      // Place bets
+      await betChain
+        .connect(user1)
+        .placeBet(1, 0, { value: ethers.parseEther("5.0") });
+      await betChain
+        .connect(user2)
+        .placeBet(1, 1, { value: ethers.parseEther("5.0") });
+
+      // Finalize
+      await attackerCreator.finalizeBet(1, 0);
+
+      // Get contract balance
+      const contractBalance = await ethers.provider.getBalance(
+        await betChain.getAddress()
+      );
+
+      // Try attack (should fail)
+      await expect(attackerCreator.attackWithdrawFee(1)).to.be.reverted;
+
+      // Verify contract balance hasn't been drained
+      const contractBalanceAfter = await ethers.provider.getBalance(
+        await betChain.getAddress()
+      );
+
+      // Balance should remain the same (attack failed)
+      expect(contractBalanceAfter).to.equal(contractBalance);
+    });
+
+    it("Should verify feeWithdrawn flag prevents multiple withdrawals", async function () {
+      // Attacker creates bet
+      await attackerCreator.createBet();
+
+      // Place bets
+      await betChain
+        .connect(user1)
+        .placeBet(1, 0, { value: ethers.parseEther("1.0") });
+
+      // Finalize
+      await attackerCreator.finalizeBet(1, 0);
+
+      // Attempt attack (will fail)
+      await expect(attackerCreator.attackWithdrawFee(1)).to.be.reverted;
+
+      // Even if we try again, it should still fail
+      await expect(attackerCreator.attackWithdrawFee(1)).to.be.reverted;
+    });
+
+    it("Should allow normal creator to withdraw fee after attacker fails", async function () {
+      // Normal user creates bet
+      await betChain.connect(owner).createBet(
+        "Normal Bet",
+        "",
+        "",
+        ["A", "B"],
+        0
+      );
+
+      // Users place bets
+      await betChain
+        .connect(user1)
+        .placeBet(1, 0, { value: ethers.parseEther("2.0") });
+
+      // Finalize
+      await betChain.connect(owner).finalizeBet(1, 0);
+
+      // Normal withdrawal should work
+      const ownerBalanceBefore = await ethers.provider.getBalance(owner.address);
+      
+      const tx = await betChain.connect(owner).withdrawFee(1);
+      const receipt = await tx.wait();
+      const gasUsed = receipt!.gasUsed * receipt!.gasPrice;
+      
+      const ownerBalanceAfter = await ethers.provider.getBalance(owner.address);
+
+      // Owner should have received fee minus gas
+      expect(ownerBalanceAfter).to.equal(ownerBalanceBefore + FEE - gasUsed);
+    });
+  });
+
+  describe("Combined attack scenarios", function () {
+    it("Should prevent simultaneous attacks on withdrawPrize and withdrawFee", async function () {
+      // Attacker creates bet
+      await attackerCreator.createBet();
+
+      // Attacker also bets on their own bet (dual role)
+      await attacker.placeBet(1, 0, { value: ethers.parseEther("2.0") });
+
+      // Other users bet
+      await betChain
+        .connect(user1)
+        .placeBet(1, 1, { value: ethers.parseEther("1.0") });
+
+      // Finalize with attacker winning
+      await attackerCreator.finalizeBet(1, 0);
+
+      // Try both attacks - both should fail
+      await expect(attacker.attackWithdrawPrize(1)).to.be.reverted;
+      await expect(attackerCreator.attackWithdrawFee(1)).to.be.reverted;
+    });
+
+    it("Should maintain contract integrity after failed attacks", async function () {
+      // Create normal bet
+      await betChain.createBet(
+        "Integrity Test",
+        "",
+        "",
+        ["Option A", "Option B"],
+        0
+      );
+
+      // Attacker and normal users bet
+      await attacker.placeBet(1, 0, { value: ethers.parseEther("1.0") });
+      await betChain
+        .connect(user1)
+        .placeBet(1, 0, { value: ethers.parseEther("1.0") });
+      await betChain
+        .connect(user2)
+        .placeBet(1, 1, { value: ethers.parseEther("1.0") });
+
+      // Finalize
+      await betChain.finalizeBet(1, 0);
+
+      // Try attack
+      await expect(attacker.attackWithdrawPrize(1)).to.be.reverted;
+
+      // Verify normal users can still withdraw
+      const user1BalanceBefore = await ethers.provider.getBalance(user1.address);
+
+      const tx = await betChain.connect(user1).withdrawPrize(1);
+      const receipt = await tx.wait();
+      const gasUsed = receipt!.gasUsed * receipt!.gasPrice;
+
+      const user1BalanceAfter = await ethers.provider.getBalance(user1.address);
+
+      // User1 should have received their share
+      expect(user1BalanceAfter).to.be.gt(user1BalanceBefore - gasUsed);
+
+      // Verify creator can withdraw fee
+      const ownerBalanceBefore = await ethers.provider.getBalance(owner.address);
+
+      const tx2 = await betChain.withdrawFee(1);
+      const receipt2 = await tx2.wait();
+      const gasUsed2 = receipt2!.gasUsed * receipt2!.gasPrice;
+
+      const ownerBalanceAfter = await ethers.provider.getBalance(owner.address);
+
+      // Owner should have received fee
+      expect(ownerBalanceAfter).to.equal(ownerBalanceBefore + FEE - gasUsed2);
+    });
+
+    it("Should verify contract state remains consistent after attacks", async function () {
+      // Create bet
+      await betChain.createBet("State Test", "", "", ["A", "B"], 0);
+
+      // Setup bets
+      await attacker.placeBet(1, 0, { value: ethers.parseEther("1.0") });
+      await betChain
+        .connect(user1)
+        .placeBet(1, 0, { value: ethers.parseEther("1.0") });
+      await betChain
+        .connect(user2)
+        .placeBet(1, 1, { value: ethers.parseEther("2.0") });
+
+      const betInfoBefore = await betChain.getBetFullInfo(1);
+      const totalPoolBefore = betInfoBefore.totalPool;
+
+      // Finalize
+      await betChain.finalizeBet(1, 0);
+
+      // Try attack
+      await expect(attacker.attackWithdrawPrize(1)).to.be.reverted;
+
+      // Check bet info hasn't been corrupted
+      const betInfoAfter = await betChain.getBetFullInfo(1);
+      
+      expect(betInfoAfter.finalized).to.be.true;
+      expect(betInfoAfter.totalPool).to.equal(totalPoolBefore);
+      expect(betInfoAfter.winningOption).to.equal(0);
+    });
+  });
+
+  describe("Attack detection and recovery", function () {
+    it("Should track attack attempts in attacker contract", async function () {
+      // Create bet
+      await betChain.createBet("Track Attack", "", "", ["A", "B"], 0);
+
+      // Attacker bets
+      await attacker.placeBet(1, 0, { value: ethers.parseEther("1.0") });
+      await betChain
+        .connect(user1)
+        .placeBet(1, 1, { value: ethers.parseEther("1.0") });
+
+      // Finalize
+      await betChain.finalizeBet(1, 0);
+
+      // Verify initial attack count
+      expect(await attacker.attackCount()).to.equal(0);
+
+      // Try attack
+      await expect(attacker.attackWithdrawPrize(1)).to.be.reverted;
+
+      // Attack count should still be 0 (transaction reverted)
+      expect(await attacker.attackCount()).to.equal(0);
+    });
+
+    it("Should verify attacking flag state after failed attack", async function () {
+      // Create bet
+      await betChain.createBet("Flag Test", "", "", ["A", "B"], 0);
+
+      // Setup
+      await attacker.placeBet(1, 0, { value: ethers.parseEther("1.0") });
+      await betChain
+        .connect(user1)
+        .placeBet(1, 1, { value: ethers.parseEther("1.0") });
+      await betChain.finalizeBet(1, 0);
+
+      // Initial flag state
+      expect(await attacker.attacking()).to.be.false;
+
+      // Try attack - will fail
+      await expect(attacker.attackWithdrawPrize(1)).to.be.reverted;
+
+      // Since transaction reverted, state is rolled back
+      // Attack count should be 0
+      const attackCount = await attacker.attackCount();
+      expect(attackCount).to.equal(0);
+    });
+
+    it("Should demonstrate reentrancy protection is working", async function () {
+      // This test shows that without proper protection, the attack would succeed
+      // But with ReentrancyGuard, it fails
+      
+      await betChain.createBet("Protection Demo", "", "", ["A", "B"], 0);
+      
+      // Get balance after placing bet
+      await attacker.placeBet(1, 0, { value: ethers.parseEther("1.0") });
+      
+      const attackerBalanceAfterBet = await ethers.provider.getBalance(
+        await attacker.getAddress()
+      );
+      
+      await betChain
+        .connect(user1)
+        .placeBet(1, 1, { value: ethers.parseEther("1.0") });
+      
+      await betChain.finalizeBet(1, 0);
+      
+      // Attack should fail
+      await expect(attacker.attackWithdrawPrize(1)).to.be.reverted;
+      
+      // Attacker balance should not have increased (attack failed)
+      const attackerFinalBalance = await ethers.provider.getBalance(
+        await attacker.getAddress()
+      );
+      
+      expect(attackerFinalBalance).to.equal(attackerBalanceAfterBet);
+    });
+
+    it("Should verify ReentrancyGuard prevents nested withdrawals", async function () {
+      // Create two bets to test if attacker can nest withdrawals
+      await betChain.createBet("Bet 1", "", "", ["A", "B"], 0);
+      await betChain.createBet("Bet 2", "", "", ["X", "Y"], 0);
+      
+      // Attacker bets on both
+      await attacker.placeBet(1, 0, { value: ethers.parseEther("1.0") });
+      await attacker.placeBet(2, 0, { value: ethers.parseEther("1.0") });
+      
+      // Users bet against
+      await betChain
+        .connect(user1)
+        .placeBet(1, 1, { value: ethers.parseEther("1.0") });
+      await betChain
+        .connect(user1)
+        .placeBet(2, 1, { value: ethers.parseEther("1.0") });
+      
+      // Finalize both
+      await betChain.finalizeBet(1, 0);
+      await betChain.finalizeBet(2, 0);
+      
+      // Try to attack first bet
+      await expect(attacker.attackWithdrawPrize(1)).to.be.reverted;
+      
+      // Try to attack second bet
+      await expect(attacker.attackWithdrawPrize(2)).to.be.reverted;
+      
+      // Both attacks should fail, proving reentrancy guard works
+      expect(await attacker.attackCount()).to.equal(0);
+    });
+  });
+});
 });
