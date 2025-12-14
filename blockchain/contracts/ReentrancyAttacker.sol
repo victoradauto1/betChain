@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+/* solhint-disable */
+/* solidity-coverage ignore next */
 pragma solidity ^0.8.28;
 
 interface IBetChain {

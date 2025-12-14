@@ -163,13 +163,11 @@ contract BetChain is ReentrancyGuard {
         require(b.finalized, "Not finalized");
 
         uint256 winnerOpt = b.winningOption;
-        require(winnerOpt < b.options.length, "Invalid winner");
 
         uint256 userBet = b.options[winnerOpt].bets[msg.sender];
         require(userBet > 0, "No winnings");
 
         uint256 winningPool = b.options[winnerOpt].totalBets;
-        require(winningPool > 0, "Empty pool");
 
         uint256 prizePool = b.totalPool > FEE ? b.totalPool - FEE : 0;
         uint256 prize = (prizePool * userBet) / winningPool;

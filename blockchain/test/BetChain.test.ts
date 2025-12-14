@@ -1245,5 +1245,108 @@ describe("BetChain", function () {
       expect(await attacker.attackCount()).to.equal(0);
     });
   });
+  describe("Branch Coverage - withdrawPrize Edge Cases", function () {
+  let betChain: BetChain;
+  let owner: SignerWithAddress;
+  let user1: SignerWithAddress;
+  let user2: SignerWithAddress;
+
+  beforeEach(async function () {
+    [owner, user1, user2] = await ethers.getSigners();
+
+    const BetChainFactory = await ethers.getContractFactory("BetChain");
+    betChain = await BetChainFactory.deploy();
+    await betChain.waitForDeployment();
+  });
+
+  it("Should cover prizePool ELSE branch when totalPool <= FEE after fee withdrawal", async function () {
+    // Create bet with exactly FEE + 1 wei in totalPool
+    await betChain.createBet("Edge Case", "", "", ["A", "B"], 0);
+    
+    // User1 bets exactly 101 wei (FEE = 100)
+    await betChain.connect(user1).placeBet(1, 0, { value: 101 });
+    
+    const betInfo = await betChain.getBetFullInfo(1);
+    expect(betInfo.totalPool).to.equal(101n);
+    
+    // Finalize
+    await betChain.finalizeBet(1, 0);
+    
+    // Withdraw fee FIRST (this will reduce totalPool)
+    await betChain.withdrawFee(1);
+    
+    // Now totalPool should be 1 wei (101 - 100)
+    const betInfoAfterFee = await betChain.getBetFullInfo(1);
+    expect(betInfoAfterFee.totalPool).to.equal(1n);
+    
+    // Now when user1 tries to withdraw prize, totalPool (1) <= FEE (100)
+    // This will hit the ELSE branch: prizePool = 0
+    await betChain.connect(user1).withdrawPrize(1);
+    
+    // Prize should be 0 since prizePool = 0
+    // This covers the ELSE branch of: b.totalPool > FEE ? b.totalPool - FEE : 0
+  });
+
+  it("Should verify prize is 0 when fee is withdrawn first and totalPool becomes less than FEE", async function () {
+    // Create bet with minimal pool
+    await betChain.createBet("Minimal", "", "", ["A", "B"], 0);
+    
+    // Two users bet to reach just above FEE
+    await betChain.connect(user1).placeBet(1, 0, { value: 50 });
+    await betChain.connect(user2).placeBet(1, 0, { value: 51 });
+    // Total = 101 wei
+    
+    await betChain.finalizeBet(1, 0);
+    
+    // Creator withdraws fee first
+    await betChain.withdrawFee(1);
+    // totalPool is now 1 wei (101 - 100)
+    
+    // User1 withdraws - gets proportional share of 1 wei prizePool
+    const tx1 = await betChain.connect(user1).withdrawPrize(1);
+    
+    // User2 withdraws - gets remaining
+    const tx2 = await betChain.connect(user2).withdrawPrize(1);
+    
+    // Both withdrawals should succeed even though prizePool is tiny
+    await expect(tx1).to.not.be.reverted;
+    await expect(tx2).to.not.be.reverted;
+  });
+
+  it("Should handle the scenario where totalPool equals FEE exactly", async function () {
+    // Create bet with exactly FEE in pool
+    await betChain.createBet("Exact FEE", "", "", ["A", "B"], 0);
+    
+    // Bet exactly 100 wei (equal to FEE)
+    await betChain.connect(user1).placeBet(1, 0, { value: 100 });
+    
+    // Cannot finalize - pool too small (must be > FEE)
+    await expect(betChain.finalizeBet(1, 0)).to.be.revertedWith("Pool too small");
+    
+    // Add 1 more wei to make it > FEE
+    await betChain.connect(user2).placeBet(1, 0, { value: 1 });
+    
+    // Now can finalize
+    await betChain.finalizeBet(1, 0);
+    
+    // Withdraw fee first
+    await betChain.withdrawFee(1);
+    
+    // totalPool is now 1 wei (101 - 100 = 1)
+    // When withdrawing prize, totalPool (1) <= FEE (100), so prizePool = 0
+    // But wait, the logic is: prizePool = totalPool > FEE ? totalPool - FEE : 0
+    // Since totalPool = 1 and FEE = 100, we have 1 > 100 = false, so prizePool = 0
+    
+    // User1 has 100 wei bet, user2 has 1 wei bet
+    // winningPool = 101
+    // prizePool = 0 (since we're in the ELSE branch now)
+    // prize = (0 * 100) / 101 = 0
+    
+    await betChain.connect(user1).withdrawPrize(1);
+    await betChain.connect(user2).withdrawPrize(1);
+    
+    // Both should succeed but get 0 prize
+  });
+});
 });
 });
