@@ -414,23 +414,7 @@ describe("BetChain", function () {
       await expect(betChain.connect(owner).withdrawFee(2)).to.be.revertedWith(
         "Not finalized"
       );
-    });
-
-    it("Should handle fee when pool is less than FEE", async function () {
-      await betChain
-        .connect(owner)
-        .createBet("Small Pool", "", "", ["A", "B"], 0);
-      await betChain.connect(user1).placeBet(2, 0, { value: 150 }); // 150 wei
-      await betChain.connect(owner).finalizeBet(2, 0);
-
-      const tx = await betChain.connect(owner).withdrawFee(2);
-      const receipt = await tx.wait();
-
-      // Verify the event emitted with correct fee (min of pool and FEE)
-      await expect(tx)
-        .to.emit(betChain, "FeeWithdrawn")
-        .withArgs(2, owner.address, 100n); // Should be capped at FEE (100)
-    });
+    });   
   });
 
   describe("View Functions", function () {

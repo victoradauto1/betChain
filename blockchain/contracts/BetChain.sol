@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-
 struct Option {
     string name;
     uint256 totalBets;
@@ -30,11 +29,29 @@ contract BetChain is ReentrancyGuard {
 
     mapping(uint256 => Bet) private bets;
 
-    event BetCreated(uint256 indexed id, address indexed creator, string title, uint256 deadline);
-    event BetPlaced(uint256 indexed id, uint256 optionId, address indexed bettor, uint256 amount);
+    event BetCreated(
+        uint256 indexed id,
+        address indexed creator,
+        string title,
+        uint256 deadline
+    );
+    event BetPlaced(
+        uint256 indexed id,
+        uint256 optionId,
+        address indexed bettor,
+        uint256 amount
+    );
     event BetFinalized(uint256 indexed id, uint256 winningOption);
-    event PrizeWithdrawn(uint256 indexed id, address indexed winner, uint256 amount);
-    event FeeWithdrawn(uint256 indexed id, address indexed creator, uint256 amount);
+    event PrizeWithdrawn(
+        uint256 indexed id,
+        address indexed winner,
+        uint256 amount
+    );
+    event FeeWithdrawn(
+        uint256 indexed id,
+        address indexed creator,
+        uint256 amount
+    );
 
     modifier validBetId(uint256 betId) {
         require(betId != 0 && betId <= nextId, "Invalid betId");
@@ -91,11 +108,10 @@ contract BetChain is ReentrancyGuard {
      * @param betId ID of the bet
      * @param optionId Index of the option to bet on
      */
-    function placeBet(uint256 betId, uint256 optionId)
-        external
-        payable
-        validBetId(betId)
-    {
+    function placeBet(
+        uint256 betId,
+        uint256 optionId
+    ) external payable validBetId(betId) {
         Bet storage b = bets[betId];
 
         require(b.active, "Bet inactive");
@@ -118,10 +134,10 @@ contract BetChain is ReentrancyGuard {
      * @param betId ID of the bet
      * @param winningOptionId Index of the winning option
      */
-    function finalizeBet(uint256 betId, uint256 winningOptionId)
-        external
-        validBetId(betId)
-    {
+    function finalizeBet(
+        uint256 betId,
+        uint256 winningOptionId
+    ) external validBetId(betId) {
         Bet storage b = bets[betId];
 
         require(b.creator == msg.sender, "Not creator");
@@ -140,11 +156,9 @@ contract BetChain is ReentrancyGuard {
      * @notice Withdraw prize for winners
      * @param betId ID of the bet
      */
-    function withdrawPrize(uint256 betId)
-        external
-        nonReentrant
-        validBetId(betId)
-    {
+    function withdrawPrize(
+        uint256 betId
+    ) external nonReentrant validBetId(betId) {
         Bet storage b = bets[betId];
         require(b.finalized, "Not finalized");
 
@@ -173,17 +187,15 @@ contract BetChain is ReentrancyGuard {
      * @notice Withdraw house fee (creator only)
      * @param betId ID of the bet
      */
-    function withdrawFee(uint256 betId)
-        external
-        nonReentrant
-        validBetId(betId)
-    {
+    function withdrawFee(
+        uint256 betId
+    ) external nonReentrant validBetId(betId) {
         Bet storage b = bets[betId];
         require(b.finalized, "Not finalized");
         require(b.creator == msg.sender, "Not creator");
         require(!b.feeWithdrawn, "Fee already claimed");
 
-        uint256 fee = b.totalPool >= FEE ? FEE : b.totalPool;
+        uint256 fee = FEE;
 
         // CEI pattern
         b.feeWithdrawn = true;
@@ -202,7 +214,10 @@ contract BetChain is ReentrancyGuard {
      * @param start Starting bet ID (1-indexed, use 0 to start from 1)
      * @param count Number of bets to return
      */
-    function getAllBets(uint256 start, uint256 count)
+    function getAllBets(
+        uint256 start,
+        uint256 count
+    )
         external
         view
         returns (
@@ -265,14 +280,26 @@ contract BetChain is ReentrancyGuard {
             deadlines[i] = b.deadline;
         }
 
-        return (ids, creators, titles, imageUrls, pools, actives, finals, optionsCounts, deadlines);
+        return (
+            ids,
+            creators,
+            titles,
+            imageUrls,
+            pools,
+            actives,
+            finals,
+            optionsCounts,
+            deadlines
+        );
     }
 
     /**
      * @notice Get complete information for a specific bet
      * @param betId ID of the bet
      */
-    function getBetFullInfo(uint256 betId)
+    function getBetFullInfo(
+        uint256 betId
+    )
         external
         view
         validBetId(betId)
@@ -308,7 +335,9 @@ contract BetChain is ReentrancyGuard {
      * @notice Get all options for a bet with their current totals
      * @param betId ID of the bet
      */
-    function getBetOptions(uint256 betId)
+    function getBetOptions(
+        uint256 betId
+    )
         external
         view
         validBetId(betId)
@@ -331,12 +360,11 @@ contract BetChain is ReentrancyGuard {
     /**
      * @notice Get user's bet amount on a specific option
      */
-    function getUserBetAmount(uint256 betId, uint256 optionId, address user)
-        external
-        view
-        validBetId(betId)
-        returns (uint256)
-    {
+    function getUserBetAmount(
+        uint256 betId,
+        uint256 optionId,
+        address user
+    ) external view validBetId(betId) returns (uint256) {
         Bet storage b = bets[betId];
         require(optionId < b.options.length, "Invalid option");
         return b.options[optionId].bets[user];
