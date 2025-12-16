@@ -6,9 +6,11 @@
     "test": "npx hardhat test",
     "coverage": "npx hardhat coverage",
     "compile": "npx hardhat compile",
-    "deploy": "npx hardhat run scripts/deploy.ts --network sepolia"
+    "deploy": "npx hardhat run scripts/deploy.ts --network sepolia",
+    "deploy-ignition": "npx hardhat ignition deploy ignition/modules/BetChain.ts --network sepolia --reset"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-ignition-ethers": "^0.15.17",
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
     "@types/chai": "^4.3.5",
     "@types/mocha": "^10.0.6",

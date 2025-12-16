@@ -27,3 +27,22 @@ hardhat-network-*
 # Environment variables
 .env
 .env.*
+
+# =========================
+# Hardhat Ignition
+# =========================
+
+# Ignition build artifacts (bytecode, dbg, build-info)
+ignition/deployments/**/artifacts/
+ignition/deployments/**/build-info/
+ignition/deployments/**/*.dbg.json
+
+# Optional: ignore ignition execution journals if you don't want history
+# (COMENTE se quiser versionar deploy history)
+# ignition/deployments/**/journal.jsonl
+
+# =========================
+# OS / Editor noise
+# =========================
+.DS_Store
+*.log
