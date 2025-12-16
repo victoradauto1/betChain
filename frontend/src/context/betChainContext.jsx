@@ -5,7 +5,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import BetChainABI from "../abi/BetChain.json";
 
 const TARGET_CHAIN_ID = "0xaa36a7"; // Sepolia chainId
-const CONTRACT_ADDRESS = "0x5B49C937B0c431D26478e6C9E7a73a5d3b267f7A";
+const CONTRACT_ADDRESS = "0x3d490A5bE3da102790E59DBa4afb811941589A2b";
 
 export const BetChainContext = createContext(null);
 

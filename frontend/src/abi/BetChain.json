@@ -1,4 +1,10 @@
-[{
+[
+    {
+      "inputs": [],
+      "name": "ReentrancyGuardReentrantCall",
+      "type": "error"
+    },
+    {
       "anonymous": false,
       "inputs": [
         {
@@ -18,6 +24,12 @@
           "internalType": "string",
           "name": "title",
           "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "deadline",
+          "type": "uint256"
         }
       ],
       "name": "BetCreated",
@@ -85,6 +97,31 @@
         {
           "indexed": true,
           "internalType": "address",
+          "name": "creator",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "FeeWithdrawn",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "id",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
           "name": "winner",
           "type": "address"
         },
@@ -114,65 +151,6 @@
     {
       "inputs": [
         {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "bets",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "creator",
-          "type": "address"
-        },
-        {
-          "internalType": "string",
-          "name": "title",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "description",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "imageUrl",
-          "type": "string"
-        },
-        {
-          "internalType": "uint256",
-          "name": "optionsCount",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "totalPool",
-          "type": "uint256"
-        },
-        {
-          "internalType": "bool",
-          "name": "active",
-          "type": "bool"
-        },
-        {
-          "internalType": "bool",
-          "name": "finalized",
-          "type": "bool"
-        },
-        {
-          "internalType": "uint256",
-          "name": "winningOption",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
           "internalType": "string",
           "name": "title",
           "type": "string"
@@ -191,6 +169,11 @@
           "internalType": "string[]",
           "name": "optionNames",
           "type": "string[]"
+        },
+        {
+          "internalType": "uint256",
+          "name": "deadline",
+          "type": "uint256"
         }
       ],
       "name": "createBet",
@@ -220,11 +203,75 @@
       "inputs": [
         {
           "internalType": "uint256",
+          "name": "start",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "count",
+          "type": "uint256"
+        }
+      ],
+      "name": "getAllBets",
+      "outputs": [
+        {
+          "internalType": "uint256[]",
+          "name": "ids",
+          "type": "uint256[]"
+        },
+        {
+          "internalType": "address[]",
+          "name": "creators",
+          "type": "address[]"
+        },
+        {
+          "internalType": "string[]",
+          "name": "titles",
+          "type": "string[]"
+        },
+        {
+          "internalType": "string[]",
+          "name": "imageUrls",
+          "type": "string[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "pools",
+          "type": "uint256[]"
+        },
+        {
+          "internalType": "bool[]",
+          "name": "actives",
+          "type": "bool[]"
+        },
+        {
+          "internalType": "bool[]",
+          "name": "finals",
+          "type": "bool[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "optionsCounts",
+          "type": "uint256[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "deadlines",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
           "name": "betId",
           "type": "uint256"
         }
       ],
-      "name": "getBetInfo",
+      "name": "getBetFullInfo",
       "outputs": [
         {
           "internalType": "address",
@@ -239,6 +286,11 @@
         {
           "internalType": "string",
           "name": "description",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "imageUrl",
           "type": "string"
         },
         {
@@ -260,6 +312,16 @@
           "internalType": "uint256",
           "name": "optionsCount",
           "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "deadline",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "winningOption",
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -271,23 +333,31 @@
           "internalType": "uint256",
           "name": "betId",
           "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "optionId",
-          "type": "uint256"
         }
       ],
-      "name": "getOptionInfo",
+      "name": "getBetOptions",
       "outputs": [
         {
-          "internalType": "string",
-          "name": "name",
-          "type": "string"
+          "internalType": "string[]",
+          "name": "names",
+          "type": "string[]"
         },
         {
+          "internalType": "uint256[]",
+          "name": "totals",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getTotalBets",
+      "outputs": [
+        {
           "internalType": "uint256",
-          "name": "totalBets",
+          "name": "",
           "type": "uint256"
         }
       ],
@@ -312,7 +382,7 @@
           "type": "address"
         }
       ],
-      "name": "getUserBet",
+      "name": "getUserBetAmount",
       "outputs": [
         {
           "internalType": "uint256",
@@ -379,4 +449,5 @@
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
-    }]
+    }
+  ]
