@@ -14,16 +14,21 @@ export const BetChainProvider = ({ children }) => {
   const [account, setAccount] = useState(null);
   const [contract, setContract] = useState(null);
 
-  const connectWallet = async () => {
-    if (!window.ethereum) {
-      alert("Please install MetaMask!");
-      return;
-    }
+  const setupProvider = async (ethereum, selectedAccount) => {
+    const web3Instance = new Web3(ethereum);
+    const contractInstance = new web3Instance.eth.Contract(
+      BetChainABI,
+      CONTRACT_ADDRESS
+    );
 
-    const ethereum = window.ethereum;
+    setWeb3(web3Instance);
+    setAccount(selectedAccount);
+    setContract(contractInstance);
+  };
 
-    // Validate network
+  const validateNetwork = async (ethereum) => {
     const chainId = await ethereum.request({ method: "eth_chainId" });
+
     if (chainId !== TARGET_CHAIN_ID) {
       try {
         await ethereum.request({
@@ -31,7 +36,6 @@ export const BetChainProvider = ({ children }) => {
           params: [{ chainId: TARGET_CHAIN_ID }],
         });
       } catch (err) {
-        // If chain is not added to MetaMask
         if (err.code === 4902) {
           await ethereum.request({
             method: "wallet_addEthereumChain",
@@ -50,34 +54,75 @@ export const BetChainProvider = ({ children }) => {
             ],
           });
         } else {
-          console.error("Network switch error:", err);
-          return;
+          throw err;
         }
       }
     }
+  };
 
-    const accounts = await ethereum.request({ method: "eth_requestAccounts" });
-    const web3Instance = new Web3(ethereum);
-    const contractInstance = new web3Instance.eth.Contract(
-      BetChainABI,
-      CONTRACT_ADDRESS
-    );
+  // 🔹 Chamado APENAS quando o usuário clicar em "Connect Wallet"
+  const connectWallet = async () => {
+    if (!window.ethereum) {
+      alert("Please install MetaMask!");
+      return;
+    }
 
-    setWeb3(web3Instance);
-    setAccount(accounts[0]);
-    setContract(contractInstance);
+    const ethereum = window.ethereum;
 
-    ethereum.on("accountsChanged", (accs) => setAccount(accs[0]));
-    ethereum.on("chainChanged", () => window.location.reload());
+    try {
+      await validateNetwork(ethereum);
+
+      const accounts = await ethereum.request({
+        method: "eth_requestAccounts",
+      });
+
+      await setupProvider(ethereum, accounts[0]);
+    } catch (err) {
+      console.error("Wallet connection error:", err);
+    }
+  };
+
+  const checkWalletConnection = async () => {
+    if (!window.ethereum) return;
+
+    const ethereum = window.ethereum;
+
+    try {
+      const accounts = await ethereum.request({
+        method: "eth_accounts",
+      });
+
+      if (accounts.length > 0) {
+        await validateNetwork(ethereum);
+        await setupProvider(ethereum, accounts[0]);
+      }
+    } catch (err) {
+      console.error("Wallet check error:", err);
+    }
   };
 
   useEffect(() => {
-    connectWallet();
+    checkWalletConnection();
+
+    if (window.ethereum) {
+      window.ethereum.on("accountsChanged", (accs) => {
+        setAccount(accs.length > 0 ? accs[0] : null);
+      });
+
+      window.ethereum.on("chainChanged", () => {
+        window.location.reload();
+      });
+    }
   }, []);
 
   return (
     <BetChainContext.Provider
-      value={{ web3, account, contract, connectWallet }}
+      value={{
+        web3,
+        account,
+        contract,
+        connectWallet,
+      }}
     >
       {children}
     </BetChainContext.Provider>
