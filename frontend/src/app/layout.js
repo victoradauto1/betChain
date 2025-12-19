@@ -1,14 +1,14 @@
 import "./globals.css";
 
-import { BetChainProvider } from "../context/betChainContext";
 import Footer from "../components/Footer";
 import Header from "../components/Header";
+import { BetChainProvider } from "../context/BetChainContext";
 
 export const metadata = {
   title: "BetCandidate",
   description: "Bet on your best candidate!",
   icons: {
-    icon: "/icon.png"
+    icon: "/icon.png",
   },
 };
 

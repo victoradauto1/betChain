@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { useRouter } from "next/navigation"; // Router for redirecting the user after success
-import { useBetChain } from "../../context/betChainContext";
+import { useState } from "react";
+import { useBetChain } from "../../context/BetChainContext";
 
 export default function CreateBet() {
   // Next.js router for navigation
@@ -66,7 +66,6 @@ export default function CreateBet() {
 
       // Redirect user after success
       router.push("/allBets");
-
     } catch (err) {
       console.error(err);
       alert("Error creating bet");
@@ -75,7 +74,6 @@ export default function CreateBet() {
 
   return (
     <div className="min-h-screen w-full text-white flex flex-col items-center relative overflow-hidden">
-
       {/* Background Image + Overlay */}
       <div className="absolute inset-0 bg-gray-950">
         <div className="absolute inset-0 bg-[url('/images/stadiumBet.png')] bg-cover bg-center opacity-20 mix-blend-lighten grayscale"></div>
@@ -84,7 +82,6 @@ export default function CreateBet() {
 
       {/* Form Container */}
       <div className="relative z-10 w-full max-w-2xl px-4 py-10">
-
         {/* Header */}
         <div className="w-full flex justify-between items-center mb-4 px-2">
           <h2 className="text-2xl font-semibold">Create a Bet</h2>
@@ -99,9 +96,7 @@ export default function CreateBet() {
 
         {/* Card */}
         <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800 p-8 rounded-2xl shadow-xl">
-
           <form onSubmit={handleSubmit} className="space-y-6">
-
             {/* Title Input */}
             <Input
               label="Bet Title"
@@ -187,7 +182,6 @@ export default function CreateBet() {
             >
               Create Bet
             </button>
-
           </form>
         </div>
       </div>

@@ -1,11 +1,11 @@
 "use client";
 
 import { ethers } from "ethers";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useBetChain } from "../context/betChainContext";
 import PageHeaderActions from "../components/PageHeaderActions";
-import Link from "next/link";
+import { useBetChain } from "../context/BetChainContext";
 
 export default function Home() {
   const { contract, account, connectWallet } = useBetChain();

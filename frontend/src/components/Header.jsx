@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useRef, useEffect } from "react";
-import { useBetChain } from "../context/betChainContext";
+import { useEffect, useRef, useState } from "react";
+import { useBetChain } from "../context/BetChainContext";
 import PageTitle from "./PageTitle";
 
 export default function Header() {
@@ -22,11 +22,13 @@ export default function Header() {
   }, []);
 
   return (
-    <div className="w-full flex justify-center pt-10"> {/* keeps top spacing identical */}
-      <header className="w-full flex justify-between items-center max-w-6xl mb-10 px-6" >
+    <div className="w-full flex justify-center pt-10">
+      {" "}
+      {/* keeps top spacing identical */}
+      <header className="w-full flex justify-between items-center max-w-6xl mb-10 px-6">
         {/* Title: clickable, links to home */}
         <Link href="/" className="hover:opacity-90 transition ">
-          <PageTitle >BetChain</PageTitle>
+          <PageTitle>BetChain</PageTitle>
         </Link>
 
         {/* Wallet / Welcome block (interactive) */}
@@ -65,7 +67,7 @@ export default function Header() {
                     try {
                       navigator.clipboard.writeText(account);
                     } catch (e) {
-                      /* ignore */ 
+                      /* ignore */
                     }
                     setMenuOpen(false);
                   }}
