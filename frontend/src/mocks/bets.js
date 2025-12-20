@@ -10,8 +10,8 @@ export const mockBets = [
     finalized: false,
     deadline: Date.now() / 1000 + 86400,
     options: [
-      { name: "Real Madrid", amount: "1.5" },
-      { name: "Manchester City", amount: "1.0" },
+      { name: "Real Madrid", amount: 1.5 },      // ✅ número
+      { name: "Manchester City", amount: 1.0 },  // ✅ número
     ],
   },
 ];
