@@ -19,7 +19,7 @@ export default function BetDetails({ params }) {
   const [betAmount, setBetAmount] = useState("");
   const [placing, setPlacing] = useState(false);
 
-  const USE_MOCK = false;
+  const USE_MOCK = true;
 
   useEffect(() => {
     // 🧪 MOCK MODE
