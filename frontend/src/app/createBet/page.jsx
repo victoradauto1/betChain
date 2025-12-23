@@ -1,21 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation"; // Router for redirecting the user after success
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useBetChain } from "../../context/BetChainContext";
 
 export default function CreateBet() {
-  // Next.js router for navigation
   const router = useRouter();
-
-  // Accessing Web3, wallet and contract from global context
   const { contract, account } = useBetChain();
 
   // Form state
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [deadline, setDeadline] = useState(""); // ✅ NOVO: campo de deadline
+  const [isProcessing, setIsProcessing] = useState(false); // ✅ Loading state
 
   // Bet options — minimum 2
   const [options, setOptions] = useState(["", ""]);
@@ -56,19 +55,52 @@ export default function CreateBet() {
       return;
     }
 
+    setIsProcessing(true); // ✅ Ativa loading
+
     try {
-      // Sending transaction to blockchain
+      // ✅ Converter deadline para timestamp Unix (ou 0 se não houver)
+      let deadlineTimestamp = 0;
+      
+      if (deadline) {
+        const deadlineDate = new Date(deadline);
+        deadlineTimestamp = Math.floor(deadlineDate.getTime() / 1000);
+        
+        // Validar se a deadline é futura
+        if (deadlineTimestamp <= Math.floor(Date.now() / 1000)) {
+          alert("Deadline must be in the future!");
+          setIsProcessing(false);
+          return;
+        }
+      }
+
+      console.log("📤 Sending transaction with params:", {
+        title,
+        description,
+        imageUrl,
+        options: filteredOptions,
+        deadline: deadlineTimestamp,
+      });
+
+      // ✅ Sending transaction to blockchain com todos os 5 parâmetros
       await contract.methods
-        .createBet(title, description, imageUrl, filteredOptions)
+        .createBet(
+          title,
+          description,
+          imageUrl,
+          filteredOptions,
+          deadlineTimestamp // ✅ 5º parâmetro obrigatório
+        )
         .send({ from: account });
 
-      alert("Bet created successfully!");
+      // ✅ Pequeno delay para garantir que a transação foi minerada
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Redirect user after success
+      alert("Bet created successfully! 🎉");
       router.push("/allBets");
     } catch (err) {
-      console.error(err);
-      alert("Error creating bet");
+      console.error("Error creating bet:", err);
+      alert(`Error creating bet: ${err.message}`);
+      setIsProcessing(false); // ✅ Desativa loading em caso de erro
     }
   };
 
@@ -103,11 +135,12 @@ export default function CreateBet() {
               placeholder="e.g. Champions League Winner"
               value={title}
               onChange={setTitle}
+              required
             />
 
             {/* Image URL Input */}
             <Input
-              label="Image URL"
+              label="Image URL (optional)"
               placeholder="https://example.com/banner.jpg"
               value={imageUrl}
               onChange={setImageUrl}
@@ -115,10 +148,20 @@ export default function CreateBet() {
 
             {/* Description Input */}
             <Input
-              label="Description"
+              label="Description (optional)"
               placeholder="Describe the bet context..."
               value={description}
               onChange={setDescription}
+            />
+
+            {/* ✅ NOVO: Deadline Input */}
+            <Input
+              label="Deadline (optional)"
+              type="datetime-local"
+              value={deadline}
+              onChange={setDeadline}
+              placeholder=""
+              helpText="Leave empty for no deadline. Must be a future date."
             />
 
             {/* Dynamic Options */}
@@ -132,12 +175,13 @@ export default function CreateBet() {
                   <div key={index} className="flex gap-3 items-center">
                     <input
                       type="text"
-                      className="flex-1 p-3 rounded-lg bg-zinc-800 border border-zinc-700 text-white"
+                      className="flex-1 p-3 rounded-lg bg-zinc-800 border border-zinc-700 text-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
                       placeholder={`Option ${index + 1}`}
                       value={opt}
                       onChange={(e) =>
                         handleOptionChange(index, e.target.value)
                       }
+                      required
                     />
 
                     {/* Delete button for extra options */}
@@ -174,27 +218,89 @@ export default function CreateBet() {
             {/* Submit Button */}
             <button
               type="submit"
+              disabled={isProcessing}
               className="
                 w-full bg-indigo-600 hover:bg-indigo-700
+                disabled:bg-gray-600 disabled:cursor-not-allowed
                 text-white font-bold py-3 rounded-lg
                 shadow transition
               "
             >
-              Create Bet
+              {isProcessing ? "Processing..." : "Create Bet"}
             </button>
           </form>
         </div>
       </div>
+
+      {/* ✅ MODAL DE LOADING BLOCKCHAIN */}
+      {isProcessing && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 px-4">
+          <div className="bg-linear-to-br from-gray-900 to-gray-800 border-2 border-indigo-500 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
+            {/* Spinner animado */}
+            <div className="flex justify-center mb-6">
+              <div className="relative">
+                <div className="w-20 h-20 border-4 border-indigo-500/30 rounded-full"></div>
+                <div className="w-20 h-20 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin absolute top-0"></div>
+              </div>
+            </div>
+
+            {/* Texto */}
+            <h3 className="text-2xl font-bold text-white mb-3">
+              Processing Transaction
+            </h3>
+            <p className="text-gray-300 mb-2">
+              Your bet is being recorded on the blockchain.
+            </p>
+            <p className="text-sm text-gray-400">
+              Please confirm the transaction in MetaMask and wait for confirmation...
+            </p>
+
+            {/* Indicador de etapas */}
+            <div className="mt-6 space-y-2 text-left">
+              <div className="flex items-center gap-3 text-sm">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-gray-300">Awaiting wallet confirmation</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                <span className="text-gray-300">Broadcasting to network</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span className="text-gray-400">Mining transaction...</span>
+              </div>
+            </div>
+
+            {/* Info adicional */}
+            <div className="mt-6 p-4 bg-indigo-900/30 rounded-lg border border-indigo-500/30">
+              <p className="text-xs text-gray-400">
+                ⏱️ This process usually takes 10-15 seconds on Sepolia testnet
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 /* Reusable Input Component */
-function Input({ label, value, onChange, placeholder, type = "text" }) {
+function Input({ 
+  label, 
+  value, 
+  onChange, 
+  placeholder, 
+  type = "text", 
+  required = false,
+  helpText 
+}) {
   return (
     <div>
       {/* Input Label */}
-      <label className="block text-white font-semibold mb-1">{label}</label>
+      <label className="block text-white font-semibold mb-1">
+        {label}
+        {required && <span className="text-red-400 ml-1">*</span>}
+      </label>
 
       {/* Input Field */}
       <input
@@ -207,7 +313,13 @@ function Input({ label, value, onChange, placeholder, type = "text" }) {
         "
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        required={required}
       />
+
+      {/* Help Text */}
+      {helpText && (
+        <p className="text-xs text-gray-400 mt-1">{helpText}</p>
+      )}
     </div>
   );
 }
