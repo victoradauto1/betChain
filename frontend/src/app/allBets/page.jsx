@@ -5,8 +5,7 @@ import Link from "next/link";
 import { ethers } from "ethers";
 import contractABI from "../../abi/BetChain.json";
 
-// Replace with your deployed contract address
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+const CONTRACT_ADDRESS = "0x3d490A5bE3da102790E59DBa4afb811941589A2b";
 
 export default function AllBets() {
   const [bets, setBets] = useState([]);
@@ -20,28 +19,72 @@ export default function AllBets() {
       // Connect to the user's wallet
       if (!window.ethereum) {
         console.error("MetaMask not detected");
+        setLoading(false);
         return;
       }
 
       const provider = new ethers.BrowserProvider(window.ethereum);
       const contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, provider);
 
-      // Call the smart contract method
-      const allBets = await contract.getAllBets();
+      console.log("🔍 Contract address:", CONTRACT_ADDRESS);
 
-      // Normalize results to match card display
-      const formatted = allBets.map((bet, index) => ({
-        id: index,
-        title: bet.title,
-        description: bet.description,
-        imageUrl: bet.imageUrl,
-        creator: bet.creator,
-        isActive: bet.isActive,
+      // Get total number of bets first
+      const totalBets = await contract.getTotalBets();
+      const total = Number(totalBets);
+
+      console.log("📊 Total bets in contract:", total);
+
+      if (total === 0) {
+        console.log("⚠️ No bets found in contract");
+        setBets([]);
+        setLoading(false);
+        return;
+      }
+
+      // ✅ Call getAllBets with pagination (start=0 will auto-adjust to 1 in contract)
+      console.log("📡 Calling getAllBets(0, " + total + ")");
+      const result = await contract.getAllBets(0, total);
+
+      console.log("📦 Raw result from contract:", result);
+
+      // ✅ Destructure the 9 arrays returned by the contract
+      const [
+        ids,
+        creators,
+        titles,
+        imageUrls,
+        pools,
+        actives,
+        finals,
+        optionsCounts,
+        deadlines
+      ] = result;
+
+      console.log("🔢 IDs:", ids.map(Number));
+      console.log("👤 Creators:", creators);
+      console.log("📝 Titles:", titles);
+      console.log("✅ Actives:", actives);
+
+      // ✅ Transform arrays into objects
+      const formatted = ids.map((id, index) => ({
+        id: Number(id),
+        title: titles[index],
+        description: "", // getAllBets não retorna description
+        imageUrl: imageUrls[index],
+        creator: creators[index],
+        totalPool: ethers.formatEther(pools[index]),
+        isActive: actives[index],
+        isFinalized: finals[index],
+        optionsCount: Number(optionsCounts[index]),
+        deadline: Number(deadlines[index]),
       }));
+
+      console.log("✅ Formatted bets:", formatted);
 
       setBets(formatted);
     } catch (err) {
-      console.error("Error fetching bets:", err);
+      console.error("❌ Error fetching bets:", err);
+      console.error("❌ Error details:", err.message);
     } finally {
       setLoading(false);
     }
