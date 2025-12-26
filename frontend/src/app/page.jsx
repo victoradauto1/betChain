@@ -15,91 +15,70 @@ export default function Home() {
 
   useEffect(() => {
     const loadBets = async () => {
-      if (!contract) return;
+      console.log("🔍 Contract object:", contract);
+      
+      if (!contract) {
+        console.log("⚠️ Contract not available yet");
+        return;
+      }
+
       setLoading(true);
       try {
+        console.log("📡 Calling contract.methods.nextId()...");
         const nextId = await contract.methods.nextId().call();
         const total = Number(nextId);
 
         console.log("📊 NextId from contract:", total);
+        console.log("📊 Type of total:", typeof total);
+
+        if (total === 0) {
+          console.log("⚠️ No bets found in contract");
+          setBets([]);
+          setLoading(false);
+          return;
+        }
+
+        console.log(`🔄 Starting loop from 1 to ${total}`);
 
         const betsList = [];
 
-        for (let i = 1; i < total; i++) {
+        // ✅ Loop começa em 1 e vai até total (INCLUINDO total)
+        for (let i = 1; i <= total; i++) {
+          console.log(`🔄 Fetching bet #${i}...`);
           try {
-            const bet = await contract.methods.getBetInfo(i).call();
+            // ✅ Web3 retorna um OBJETO, não array
+            const result = await contract.methods.getBetFullInfo(i).call();
+            
+            console.log(`📦 Raw result for bet #${i}:`, result);
+
+            // ✅ Acessar como objeto (Web3 style)
             betsList.push({
               id: i,
-              creator: bet.creator,
-              title: bet.title,
-              description: bet.description,
-              imageUrl: bet.imageUrl,
-              totalPool: bet.totalPool,
-              active: bet.active,
-              finalized: bet.finalized,
+              creator: result.creator || result[0],
+              title: result.title || result[1],
+              description: result.description || result[2],
+              imageUrl: result.imageUrl || result[3],
+              totalPool: (result.totalPool || result[4]).toString(),
+              active: result.active || result[5],
+              finalized: result.finalized || result[6],
+              optionsCount: Number(result.optionsCount || result[7]),
+              deadline: Number(result.deadline || result[8]),
+              winningOption: (result.finalized || result[6]) ? Number(result.winningOption || result[9]) : null,
             });
+
+            console.log(`✅ Loaded bet #${i}:`, result.title || result[1]);
           } catch (err) {
-            console.error(`Error loading bet ${i}:`, err);
+            console.error(`❌ Error loading bet ${i}:`, err);
           }
         }
 
-        if (betsList.length === 0) {
-          console.log("⚠️ No bets found in contract, using mock data");
-          betsList.push(
-            {
-              id: 1,
-              creator: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
-              title: "Champions League Winner 2025",
-              description:
-                "Who will win the UEFA Champions League this season?",
-              imageUrl:
-                "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=400",
-              totalPool: ethers.parseEther("1.24").toString(),
-              active: true,
-              finalized: false,
-            },
-            {
-              id: 2,
-              creator: "0x123d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
-              title: "UFC 300 Main Event",
-              description: "Predict the winner and method of victory",
-              imageUrl:
-                "https://images.unsplash.com/photo-1555597673-b21d5c935865?w=400",
-              totalPool: ethers.parseEther("0.82").toString(),
-              active: true,
-              finalized: false,
-            },
-            {
-              id: 3,
-              creator: "0x456d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
-              title: "Formula 1 Monaco GP",
-              description: "Who will stand on the podium?",
-              imageUrl:
-                "https://images.unsplash.com/photo-1541443131876-44b03de101c5?w=400",
-              totalPool: ethers.parseEther("2.15").toString(),
-              active: false,
-              finalized: true,
-            }
-          );
-        }
+        console.log("📦 Total bets loaded:", betsList.length);
 
+        // ✅ Reverter para mostrar as mais recentes primeiro
         setBets(betsList.reverse());
       } catch (err) {
         console.error("❌ Error loading bets:", err);
-
-        setBets([
-          {
-            id: 1,
-            creator: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
-            title: "Champions League Winner 2025",
-            description: "Who will win the UEFA Champions League this season?",
-            imageUrl:
-              "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=400",
-            totalPool: ethers.parseEther("1.24").toString(),
-            active: true,
-            finalized: false,
-          },
-        ]);
+        setBets([]);
       } finally {
         setLoading(false);
       }
@@ -112,13 +91,9 @@ export default function Home() {
     <div className="min-h-screen text-white flex flex-col items-center px-6 py-10 relative overflow-hidden">
       <div className="absolute inset-0 bg-gray-950">
         <div
-          className="absolute inset-0 bg-[url('/images/stadiumBet.png')]
-                     bg-cover bg-center opacity-20 mix-blend-lighten grayscale"
+          className="absolute inset-0 bg-[url('/images/stadiumBet.png')] bg-cover bg-center opacity-20 mix-blend-lighten grayscale"
         ></div>
-        <div
-          className="absolute inset-0 bg-linear-to-b
-          from-black via-black/80 to-transparent"
-        ></div>
+        <div className="absolute inset-0 bg-linear-to-b from-black via-black/80 to-transparent"></div>
       </div>
 
       <div className="relative z-10 w-full flex flex-col items-center">
@@ -162,11 +137,11 @@ export default function Home() {
               <Link
                 href="/allBets"
                 className="
-    px-6 py-2 rounded-xl text-sm font-semibold
-    border border-indigo-400 text-indigo-400
-    hover:bg-indigo-600 hover:text-white
-    transition
-  "
+                  px-6 py-2 rounded-xl text-sm font-semibold
+                  border border-indigo-400 text-indigo-400
+                  hover:bg-indigo-600 hover:text-white
+                  transition
+                "
               >
                 View All
               </Link>
