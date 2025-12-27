@@ -19,84 +19,71 @@ export default function BetDetails({ params }) {
   const [betAmount, setBetAmount] = useState("");
   const [placing, setPlacing] = useState(false);
 
-  const USE_MOCK = false;
-
   useEffect(() => {
-    // 🧪 MOCK MODE
-    if (USE_MOCK) {
+    async function fetchBet() {
+      // ✅ Tenta buscar do contrato primeiro
+      if (contract && betId) {
+        try {
+          console.log(`🔍 Fetching bet #${betId} from contract...`);
+          
+          // ✅ Web3 retorna OBJETO, não array
+          const result = await contract.methods.getBetFullInfo(betId).call();
+          console.log("📦 Raw result from contract:", result);
+
+          const optionsResult = await contract.methods.getBetOptions(betId).call();
+          console.log("📦 Options result:", optionsResult);
+
+          // ✅ Acessar como objeto (Web3 style)
+          const options = (optionsResult.names || optionsResult[0]).map((name, i) => ({
+            name,
+            amount: Number(ethers.formatEther((optionsResult.totals || optionsResult[1])[i])),
+          }));
+
+          setBet({
+            id: betId,
+            title: result.title || result[1],
+            description: result.description || result[2],
+            creator: result.creator || result[0],
+            amount: `${ethers.formatEther(result.totalPool || result[4])} ETH`,
+            active: result.active || result[5],
+            finalized: result.finalized || result[6],
+            imageUrl: result.imageUrl || result[3],
+            deadline: Number(result.deadline || result[8]),
+            winningOption:
+              (result.winningOption || result[9]) !==
+              "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                ? Number(result.winningOption || result[9])
+                : null,
+            options,
+          });
+
+          console.log("✅ Bet loaded successfully from contract");
+          setLoading(false);
+          return; // ✅ Sucesso, não precisa do fallback
+        } catch (err) {
+          console.log("⚠️ Bet not found in contract, trying mock fallback...", err.message);
+        }
+      }
+
+      // 🔄 FALLBACK: Tenta buscar no mock
       const mockBet = mockBets.find((b) => b.id === betId);
 
-      if (!mockBet) {
-        setBet(null);
-        setLoading(false);
-        return;
-      }
-
-      setBet({
-        ...mockBet,
-        amount: `${mockBet.totalPool} ETH`,
-        options: mockBet.options.map((opt) => ({
-          name: opt.name,
-          amount: Number(opt.amount),
-        })),
-      });
-
-      setLoading(false);
-      return;
-    }
-
-    // 🔗 REAL CONTRACT MODE
-    if (!contract || !betId) {
-      setLoading(false);
-      return;
-    }
-
-    async function fetchBet() {
-      try {
-        const [
-          creator,
-          title,
-          description,
-          imageUrl,
-          totalPool,
-          active,
-          finalized,
-          optionsCount,
-          deadline,
-          winningOption,
-        ] = await contract.methods.getBetFullInfo(betId).call();
-
-        const [names, totals] = await contract.methods
-          .getBetOptions(betId)
-          .call();
-
-        const options = names.map((name, i) => ({
-          name,
-          amount: Number(ethers.formatEther(totals[i])),
-        }));
-
+      if (mockBet) {
+        console.log("✅ Using mock data for bet #" + betId);
         setBet({
-          id: betId,
-          title,
-          description,
-          creator,
-          amount: `${ethers.formatEther(totalPool)} ETH`,
-          active,
-          finalized,
-          imageUrl,
-          deadline: Number(deadline),
-          winningOption:
-            winningOption !==
-            "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-              ? Number(winningOption)
-              : null,
-          options,
+          ...mockBet,
+          amount: `${mockBet.totalPool} ETH`,
+          options: mockBet.options.map((opt) => ({
+            name: opt.name,
+            amount: Number(opt.amount),
+          })),
         });
-      } catch (err) {
-        console.error("Failed to fetch bet:", err);
-      } finally {
-        setLoading(false);
+      } else {
+        console.log("❌ Bet not found in contract or mock");
+        setBet(null);
       }
+
+      setLoading(false);
     }
 
     fetchBet();
