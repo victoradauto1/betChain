@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ethers } from "ethers";
 import contractABI from "../../abi/BetChain.json";
 
-const CONTRACT_ADDRESS = "0x3d490A5bE3da102790E59DBa4afb811941589A2b";
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_BETCHAIN_CONTRACT_ADDRESS;
 
 export default function AllBets() {
   const [bets, setBets] = useState([]);
@@ -16,6 +16,13 @@ export default function AllBets() {
   // -----------------------------------------------------------
   const fetchAllBets = async () => {
     try {
+      // ✅ Validate env variable
+      if (!CONTRACT_ADDRESS) {
+        console.error("❌ Contract address not set in environment variables");
+        setLoading(false);
+        return;
+      }
+
       // Connect to the user's wallet
       if (!window.ethereum) {
         console.error("MetaMask not detected");
@@ -24,7 +31,11 @@ export default function AllBets() {
       }
 
       const provider = new ethers.BrowserProvider(window.ethereum);
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, provider);
+      const contract = new ethers.Contract(
+        CONTRACT_ADDRESS,
+        contractABI,
+        provider
+      );
 
       console.log("🔍 Contract address:", CONTRACT_ADDRESS);
 
@@ -47,7 +58,7 @@ export default function AllBets() {
 
       console.log("📦 Raw result from contract:", result);
 
-      // ✅ Destructure the 9 arrays returned by the contract
+      // ✅ Destructure the arrays returned by the contract
       const [
         ids,
         creators,
@@ -60,16 +71,11 @@ export default function AllBets() {
         deadlines
       ] = result;
 
-      console.log("🔢 IDs:", ids.map(Number));
-      console.log("👤 Creators:", creators);
-      console.log("📝 Titles:", titles);
-      console.log("✅ Actives:", actives);
-
       // ✅ Transform arrays into objects
       const formatted = ids.map((id, index) => ({
         id: Number(id),
         title: titles[index],
-        description: "", // getAllBets não retorna description
+        description: "",
         imageUrl: imageUrls[index],
         creator: creators[index],
         totalPool: ethers.formatEther(pools[index]),
@@ -78,8 +84,6 @@ export default function AllBets() {
         optionsCount: Number(optionsCounts[index]),
         deadline: Number(deadlines[index]),
       }));
-
-      console.log("✅ Formatted bets:", formatted);
 
       setBets(formatted);
     } catch (err) {
@@ -101,7 +105,6 @@ export default function AllBets() {
     <div className="w-full px-6 py-10">
       <h1 className="text-4xl font-bold text-center mb-10">All Bets</h1>
 
-      {/* Loading feedback */}
       {loading ? (
         <p className="text-center text-gray-300">Loading bets...</p>
       ) : bets.length === 0 ? (
@@ -116,22 +119,19 @@ export default function AllBets() {
                   hover:scale-[1.02] hover:border-indigo-400 transition
                 "
               >
-                {/* Bet image */}
                 <img
                   src={bet.imageUrl}
                   alt="Bet Image"
                   className="w-full h-48 object-cover rounded-lg mb-4"
                 />
 
-                {/* Title */}
                 <h2 className="text-xl font-semibold mb-2">{bet.title}</h2>
 
-                {/* Creator */}
                 <p className="text-sm text-gray-400">
-                  Creator: {bet.creator.slice(0, 6)}...{bet.creator.slice(-4)}
+                  Creator: {bet.creator.slice(0, 6)}...
+                  {bet.creator.slice(-4)}
                 </p>
 
-                {/* Status */}
                 <p
                   className={`mt-2 text-sm font-semibold ${
                     bet.isActive ? "text-green-400" : "text-red-400"
