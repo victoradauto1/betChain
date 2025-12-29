@@ -4,8 +4,8 @@ import Web3 from "web3";
 import { createContext, useContext, useEffect, useState } from "react";
 import BetChainABI from "../abi/BetChain.json";
 
-const TARGET_CHAIN_ID = "0xaa36a7"; // Sepolia chainId
-const CONTRACT_ADDRESS = "0x3d490A5bE3da102790E59DBa4afb811941589A2b";
+const TARGET_CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID || "0xaa36a7";
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
 export const BetChainContext = createContext(null);
 
@@ -13,6 +13,7 @@ export const BetChainProvider = ({ children }) => {
   const [web3, setWeb3] = useState(null);
   const [account, setAccount] = useState(null);
   const [contract, setContract] = useState(null);
+  const [isManuallyDisconnected, setIsManuallyDisconnected] = useState(false);
 
   const setupProvider = async (ethereum, selectedAccount) => {
     const web3Instance = new Web3(ethereum);
@@ -24,6 +25,7 @@ export const BetChainProvider = ({ children }) => {
     setWeb3(web3Instance);
     setAccount(selectedAccount);
     setContract(contractInstance);
+    setIsManuallyDisconnected(false);
   };
 
   const validateNetwork = async (ethereum) => {
@@ -60,41 +62,45 @@ export const BetChainProvider = ({ children }) => {
     }
   };
 
-  // 🔹 Chamado APENAS quando o usuário clicar em "Connect Wallet"
   const connectWallet = async () => {
     if (!window.ethereum) {
       alert("Please install MetaMask!");
       return;
     }
 
-    const ethereum = window.ethereum;
-
     try {
-      await validateNetwork(ethereum);
-
-      const accounts = await ethereum.request({
+      await validateNetwork(window.ethereum);
+      const accounts = await window.ethereum.request({
         method: "eth_requestAccounts",
       });
-
-      await setupProvider(ethereum, accounts[0]);
+      await setupProvider(window.ethereum, accounts[0]);
     } catch (err) {
       console.error("Wallet connection error:", err);
     }
   };
 
+  const disconnectWallet = () => {
+    setAccount(null);
+    setContract(null);
+    setWeb3(null);
+    setIsManuallyDisconnected(true);
+    localStorage.setItem("walletDisconnected", "true");
+  };
+
   const checkWalletConnection = async () => {
     if (!window.ethereum) return;
 
-    const ethereum = window.ethereum;
+    const wasDisconnected = localStorage.getItem("walletDisconnected");
+    if (wasDisconnected === "true" || isManuallyDisconnected) return;
 
     try {
-      const accounts = await ethereum.request({
+      const accounts = await window.ethereum.request({
         method: "eth_accounts",
       });
 
       if (accounts.length > 0) {
-        await validateNetwork(ethereum);
-        await setupProvider(ethereum, accounts[0]);
+        await validateNetwork(window.ethereum);
+        await setupProvider(window.ethereum, accounts[0]);
       }
     } catch (err) {
       console.error("Wallet check error:", err);
@@ -106,7 +112,15 @@ export const BetChainProvider = ({ children }) => {
 
     if (window.ethereum) {
       window.ethereum.on("accountsChanged", (accs) => {
-        setAccount(accs.length > 0 ? accs[0] : null);
+        if (accs.length > 0) {
+          setAccount(accs[0]);
+          setIsManuallyDisconnected(false);
+          localStorage.removeItem("walletDisconnected");
+        } else {
+          setAccount(null);
+          setContract(null);
+          setWeb3(null);
+        }
       });
 
       window.ethereum.on("chainChanged", () => {
@@ -122,6 +136,7 @@ export const BetChainProvider = ({ children }) => {
         account,
         contract,
         connectWallet,
+        disconnectWallet
       }}
     >
       {children}

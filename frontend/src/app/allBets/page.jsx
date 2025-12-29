@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ethers } from "ethers";
 import contractABI from "../../abi/BetChain.json";
 
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_BETCHAIN_CONTRACT_ADDRESS;
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
 export default function AllBets() {
   const [bets, setBets] = useState([]);
