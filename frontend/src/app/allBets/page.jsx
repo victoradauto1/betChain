@@ -7,23 +7,18 @@ import contractABI from "../../abi/BetChain.json";
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
+/**
+ * AllBets - Full list of bets
+ *
+ * Uses getAllBets(), which returns 9 parallel arrays.
+ * More efficient than fetching bets one by one (single contract call).
+ */
 export default function AllBets() {
   const [bets, setBets] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // -----------------------------------------------------------
-  // Fetch all bets from the blockchain
-  // -----------------------------------------------------------
   const fetchAllBets = async () => {
     try {
-      // ✅ Validate env variable
-      if (!CONTRACT_ADDRESS) {
-        console.error("❌ Contract address not set in environment variables");
-        setLoading(false);
-        return;
-      }
-
-      // Connect to the user's wallet
       if (!window.ethereum) {
         console.error("MetaMask not detected");
         setLoading(false);
@@ -37,28 +32,19 @@ export default function AllBets() {
         provider
       );
 
-      console.log("🔍 Contract address:", CONTRACT_ADDRESS);
-
-      // Get total number of bets first
       const totalBets = await contract.getTotalBets();
       const total = Number(totalBets);
 
-      console.log("📊 Total bets in contract:", total);
-
       if (total === 0) {
-        console.log("⚠️ No bets found in contract");
         setBets([]);
         setLoading(false);
         return;
       }
 
-      // ✅ Call getAllBets with pagination (start=0 will auto-adjust to 1 in contract)
-      console.log("📡 Calling getAllBets(0, " + total + ")");
+      // getAllBets returns 9 arrays:
+      // ids, creators, titles, imageUrls, pools, actives, finals, optionsCounts, deadlines
       const result = await contract.getAllBets(0, total);
 
-      console.log("📦 Raw result from contract:", result);
-
-      // ✅ Destructure the arrays returned by the contract
       const [
         ids,
         creators,
@@ -68,14 +54,13 @@ export default function AllBets() {
         actives,
         finals,
         optionsCounts,
-        deadlines
+        deadlines,
       ] = result;
 
-      // ✅ Transform arrays into objects
+      // Convert parallel arrays into structured objects
       const formatted = ids.map((id, index) => ({
         id: Number(id),
         title: titles[index],
-        description: "",
         imageUrl: imageUrls[index],
         creator: creators[index],
         totalPool: ethers.formatEther(pools[index]),
@@ -87,16 +72,12 @@ export default function AllBets() {
 
       setBets(formatted);
     } catch (err) {
-      console.error("❌ Error fetching bets:", err);
-      console.error("❌ Error details:", err.message);
+      console.error("Error fetching bets:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  // -----------------------------------------------------------
-  // Load bets on component mount
-  // -----------------------------------------------------------
   useEffect(() => {
     fetchAllBets();
   }, []);
@@ -113,25 +94,17 @@ export default function AllBets() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {bets.map((bet) => (
             <Link key={bet.id} href={`/betDetails/${bet.id}`}>
-              <div
-                className="
-                  bg-gray-800 border border-gray-700 p-4 rounded-xl cursor-pointer
-                  hover:scale-[1.02] hover:border-indigo-400 transition
-                "
-              >
+              <div className="bg-gray-800 border border-gray-700 p-4 rounded-xl cursor-pointer hover:scale-[1.02] hover:border-indigo-400 transition">
                 <img
                   src={bet.imageUrl}
                   alt="Bet Image"
                   className="w-full h-48 object-cover rounded-lg mb-4"
                 />
-
                 <h2 className="text-xl font-semibold mb-2">{bet.title}</h2>
-
                 <p className="text-sm text-gray-400">
                   Creator: {bet.creator.slice(0, 6)}...
                   {bet.creator.slice(-4)}
                 </p>
-
                 <p
                   className={`mt-2 text-sm font-semibold ${
                     bet.isActive ? "text-green-400" : "text-red-400"

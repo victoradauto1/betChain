@@ -7,51 +7,42 @@ import { useEffect, useState } from "react";
 import PageHeaderActions from "../components/PageHeaderActions";
 import { useBetChain } from "../context/BetChainContext";
 
+/**
+ * Home - Main page displaying the last 3 bets
+ *
+ * Flow:
+ * 1. Fetch nextId from the contract (total number of created bets)
+ * 2. Loop from 1 to nextId fetching data for each bet
+ * 3. Display the 3 most recent bets (reversed order)
+ */
 export default function Home() {
-  const { contract, account, connectWallet } = useBetChain();
+  const { contract } = useBetChain();
   const [bets, setBets] = useState([]);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     const loadBets = async () => {
-      console.log("🔍 Contract object:", contract);
-      
-      if (!contract) {
-        console.log("⚠️ Contract not available yet");
-        return;
-      }
+      if (!contract) return;
 
       setLoading(true);
       try {
-        console.log("📡 Calling contract.methods.nextId()...");
         const nextId = await contract.methods.nextId().call();
         const total = Number(nextId);
 
-        console.log("📊 NextId from contract:", total);
-        console.log("📊 Type of total:", typeof total);
-
         if (total === 0) {
-          console.log("⚠️ No bets found in contract");
           setBets([]);
           setLoading(false);
           return;
         }
 
-        console.log(`🔄 Starting loop from 1 to ${total}`);
-
         const betsList = [];
 
-        // ✅ Loop começa em 1 e vai até total (INCLUINDO total)
+        // Loop starts at 1 (contract bet IDs start at 1)
         for (let i = 1; i <= total; i++) {
-          console.log(`🔄 Fetching bet #${i}...`);
           try {
-            // ✅ Web3 retorna um OBJETO, não array
             const result = await contract.methods.getBetFullInfo(i).call();
-            
-            console.log(`📦 Raw result for bet #${i}:`, result);
 
-            // ✅ Acessar como objeto (Web3 style)
             betsList.push({
               id: i,
               creator: result.creator || result[0],
@@ -63,21 +54,19 @@ export default function Home() {
               finalized: result.finalized || result[6],
               optionsCount: Number(result.optionsCount || result[7]),
               deadline: Number(result.deadline || result[8]),
-              winningOption: (result.finalized || result[6]) ? Number(result.winningOption || result[9]) : null,
+              winningOption: (result.finalized || result[6])
+                ? Number(result.winningOption || result[9])
+                : null,
             });
-
-            console.log(`✅ Loaded bet #${i}:`, result.title || result[1]);
           } catch (err) {
-            console.error(`❌ Error loading bet ${i}:`, err);
+            console.error(`Error loading bet ${i}:`, err);
           }
         }
 
-        console.log("📦 Total bets loaded:", betsList.length);
-
-        // ✅ Reverter para mostrar as mais recentes primeiro
+        // Reverse to show the most recent bets first
         setBets(betsList.reverse());
       } catch (err) {
-        console.error("❌ Error loading bets:", err);
+        console.error("Error loading bets:", err);
         setBets([]);
       } finally {
         setLoading(false);
@@ -90,9 +79,7 @@ export default function Home() {
   return (
     <div className="min-h-screen text-white flex flex-col items-center px-6 py-10 relative overflow-hidden">
       <div className="absolute inset-0 bg-gray-950">
-        <div
-          className="absolute inset-0 bg-[url('/images/stadiumBet.png')] bg-cover bg-center opacity-20 mix-blend-lighten grayscale"
-        ></div>
+        <div className="absolute inset-0 bg-[url('/images/stadiumBet.png')] bg-cover bg-center opacity-20 mix-blend-lighten grayscale"></div>
         <div className="absolute inset-0 bg-linear-to-b from-black via-black/80 to-transparent"></div>
       </div>
 
@@ -136,12 +123,7 @@ export default function Home() {
             <div className="mt-8">
               <Link
                 href="/allBets"
-                className="
-                  px-6 py-2 rounded-xl text-sm font-semibold
-                  border border-indigo-400 text-indigo-400
-                  hover:bg-indigo-600 hover:text-white
-                  transition
-                "
+                className="px-6 py-2 rounded-xl text-sm font-semibold border border-indigo-400 text-indigo-400 hover:bg-indigo-600 hover:text-white transition"
               >
                 View All
               </Link>
