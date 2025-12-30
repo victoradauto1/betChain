@@ -1,50 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎲 BetChain - Decentralized Betting Platform
 
-## Getting Started
+A Web3 portfolio project demonstrating blockchain integration, smart contracts, and modern frontend development.
 
-First, run the development server:
+---
+
+## 🚀 Features
+
+- 🔗 MetaMask wallet integration  
+- 📝 Create custom bets with 2–10 options  
+- 💰 Place bets using Sepolia testnet ETH  
+- 📊 Real-time bet distribution visualization  
+- ⏰ Optional deadline system  
+- 🎨 Modern UI with TailwindCSS  
+
+---
+
+## 🛠️ Technologies
+
+- **Frontend**: Next.js 14 (App Router), React, TailwindCSS  
+- **Blockchain**: Solidity, Web3.js, Ethers.js  
+- **Network**: Ethereum Sepolia Testnet  
+- **State Management**: React Context API  
+
+---
+
+## 📦 Installation
 
 ```bash
+# Clone repository
+git clone https://github.com/yourusername/betChain.git
+cd betChain
+
+# Install dependencies
+npm install
+
+# Create environment file
+cp .env.example .env.local
+
+# Add your contract address to .env.local
+NEXT_PUBLIC_CONTRACT_ADDRESS=0xYourContractAddress
+NEXT_PUBLIC_CHAIN_ID=0xaa36a7
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# betChain
-
-## 🔗 External API Integration (CoinGecko)
-
-This project uses the public **CoinGecko API** to fetch and display the real-time price of ETH in USD.  
-The integration is performed directly from the frontend using `fetch`, with automatic updates every 60 seconds.
-
-**Service file:**  
-`/src/services/priceService.js`
-
-**UI Component:**  
-`/src/components/OraclePrice.jsx`
-
-This feature demonstrates the ability to integrate external APIs, manage async data loading, and build modular UI components—important skills for frontend and Web3 developers.
