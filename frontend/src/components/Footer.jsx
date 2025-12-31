@@ -1,4 +1,7 @@
 export default function Footer() {
+  
+  const currentYear = new Date().getFullYear();
+
   return (
     <footer className="w-full bg-black text-gray-400">
 
@@ -6,7 +9,7 @@ export default function Footer() {
       <div className="w-full py-6 flex flex-col items-center">
         <div className="flex items-center gap-8">
 
-          <p className="text-sm">&copy; 2025 BetCandidate</p>
+          <p className="text-sm">&copy; {currentYear} BetCandidate</p>
 
           <nav className="flex gap-6">
             <a href="/" className="hover:text-white transition">

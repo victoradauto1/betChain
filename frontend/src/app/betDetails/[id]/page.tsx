@@ -4,16 +4,8 @@ import { ethers } from "ethers";
 import { useEffect, useState } from "react";
 import PageHeaderActions from "../../../components/PageHeaderActions";
 import { useBetChain } from "../../../context/BetChainContext";
+import { mockBets } from "../../../mocks/bets";
 
-/**
- * BetDetails - Details of a specific bet
- *
- * Features:
- * - Displays full bet information
- * - Shows bet distribution per option
- * - Allows placing a bet (interactive modal)
- * - Validates wallet connection
- */
 export default function BetDetails({ params }) {
   const { id } = params;
   const betId = Number(id);
@@ -29,52 +21,83 @@ export default function BetDetails({ params }) {
 
   useEffect(() => {
     async function fetchBet() {
-      if (!contract || !betId) {
-        setLoading(false);
-        return;
+      // ✅ Try to fetch from the contract first
+      if (contract && betId) {
+        try {
+          console.log(`🔍 Fetching bet #${betId} from contract...`);
+
+          // ✅ Web3 returns an OBJECT, not an array
+          const result = await contract.methods.getBetFullInfo(betId).call();
+          console.log("📦 Raw result from contract:", result);
+
+          const optionsResult = await contract.methods.getBetOptions(betId).call();
+          console.log("📦 Options result:", optionsResult);
+
+          // ✅ Access as object (Web3 style)
+          const options = (optionsResult.names || optionsResult[0]).map(
+            (name, i) => ({
+              name,
+              amount: Number(
+                ethers.formatEther(
+                  (optionsResult.totals || optionsResult[1])[i]
+                )
+              ),
+            })
+          );
+
+          setBet({
+            id: betId,
+            title: result.title || result[1],
+            description: result.description || result[2],
+            creator: result.creator || result[0],
+            amount: `${ethers.formatEther(result.totalPool || result[4])} ETH`,
+            active: result.active || result[5],
+            finalized: result.finalized || result[6],
+            imageUrl: result.imageUrl || result[3],
+            deadline: Number(result.deadline || result[8]),
+            winningOption:
+              (result.winningOption || result[9]) !==
+              "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                ? Number(result.winningOption || result[9])
+                : null,
+            options,
+          });
+
+          console.log("✅ Bet loaded successfully from contract");
+          setLoading(false);
+          return; // ✅ Success, no need for fallback
+        } catch (err) {
+          console.log(
+            "⚠️ Bet not found in contract, trying mock fallback...",
+            err.message
+          );
+        }
       }
 
-      try {
-        const result = await contract.methods.getBetFullInfo(betId).call();
-        const optionsResult = await contract.methods.getBetOptions(betId).call();
+      // 🔄 FALLBACK: Try to fetch from mock data
+      const mockBet = mockBets.find((b) => b.id === betId);
 
-        // Web3 may return an object or an array depending on the version
-        const options = (optionsResult.names || optionsResult[0]).map((name, i) => ({
-          name,
-          amount: Number(
-            ethers.formatEther((optionsResult.totals || optionsResult[1])[i])
-          ),
-        }));
-
+      if (mockBet) {
+        console.log("✅ Using mock data for bet #" + betId);
         setBet({
-          id: betId,
-          title: result.title || result[1],
-          description: result.description || result[2],
-          creator: result.creator || result[0],
-          amount: `${ethers.formatEther(result.totalPool || result[4])} ETH`,
-          active: result.active || result[5],
-          finalized: result.finalized || result[6],
-          imageUrl: result.imageUrl || result[3],
-          deadline: Number(result.deadline || result[8]),
-          winningOption:
-            (result.winningOption || result[9]) !==
-            "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-              ? Number(result.winningOption || result[9])
-              : null,
-          options,
+          ...mockBet,
+          amount: `${mockBet.totalPool} ETH`,
+          options: mockBet.options.map((opt) => ({
+            name: opt.name,
+            amount: Number(opt.amount),
+          })),
         });
-      } catch (err) {
-        console.error("Error fetching bet:", err);
+      } else {
+        console.log("❌ Bet not found in contract or mock");
         setBet(null);
-      } finally {
-        setLoading(false);
       }
+
+      setLoading(false);
     }
 
     fetchBet();
   }, [contract, betId]);
 
-  // Sends the bet transaction to the blockchain
   const handlePlaceBet = async () => {
     if (!account) {
       alert("Please connect your wallet first!");
@@ -100,10 +123,14 @@ export default function BetDetails({ params }) {
         .placeBet(betId, selectedOption)
         .send({ from: account, value: amountInWei });
 
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
       alert("Bet placed successfully! 🎉");
       setShowModal(false);
       setBetAmount("");
       setSelectedOption(null);
+
+      // Reload bet data
       window.location.reload();
     } catch (err) {
       console.error("Failed to place bet:", err);
@@ -118,36 +145,132 @@ export default function BetDetails({ params }) {
     setShowModal(true);
   };
 
-  if (loading) {
+  if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center text-white">
         Loading...
       </div>
     );
-  }
 
-  if (!bet) {
+  if (!bet)
     return (
       <div className="min-h-screen flex items-center justify-center text-red-400">
         Bet not found.
       </div>
     );
-  }
 
   const totalAmount = bet.options.reduce((acc, o) => acc + o.amount, 0);
 
   return (
     <div className="min-h-screen text-white flex flex-col items-center px-6 py-10 relative overflow-hidden">
-      {/* background visuals omitted for brevity */}
+      {/* BACKGROUND */}
+      <div className="absolute inset-0 bg-gray-950">
+        <div
+          className="absolute inset-0 bg-[url('/images/stadiumBet.png')]
+                     bg-cover bg-center opacity-20 mix-blend-lighten grayscale"
+        ></div>
+        <div className="absolute inset-0 bg-linear-to-b from-black via-black/80 to-transparent"></div>
+      </div>
 
-      {/* Bet modal */}
-      {showModal && (
+      <div className="relative z-10 w-full max-w-6xl">
+        <PageHeaderActions title={`Bet Details #${bet.id}`} action="return" />
+
+        <div className="bg-gray-900/70 backdrop-blur-sm p-6 rounded-2xl shadow-xl border border-zinc-700 mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+            {/* TEXT */}
+            <div className="md:col-span-2 space-y-4">
+              <div>
+                <h2 className="text-2xl font-bold">{bet.title}</h2>
+                <p className="text-gray-300">{bet.description}</p>
+              </div>
+
+              <div className="space-y-1 text-gray-300">
+                <p>
+                  <span className="font-semibold text-white">Creator:</span>{" "}
+                  {bet.creator}
+                </p>
+                <p>
+                  <span className="font-semibold text-white">Total Pool:</span>{" "}
+                  {bet.amount}
+                </p>
+                <p>
+                  <span className="font-semibold text-white">Status:</span>{" "}
+                  {bet.active ? "🟢 Active" : "🔴 Closed"}
+                </p>
+              </div>
+
+              {/* DISTRIBUTION WITH BET BUTTONS */}
+              <div className="mt-6 space-y-4">
+                <h3 className="text-lg font-semibold">Bet Distribution</h3>
+
+                {bet.options.map((opt, idx) => {
+                  const pct =
+                    totalAmount > 0 ? (opt.amount / totalAmount) * 100 : 0;
+
+                  return (
+                    <div key={idx} className="space-y-2">
+                      <div className="flex justify-between items-center gap-4">
+                        <div className="flex-1">
+                          <div className="flex justify-between mb-1">
+                            <span className="font-medium">{opt.name}</span>
+                            <span className="text-gray-300">
+                              {pct.toFixed(1)}% ({opt.amount.toFixed(4)} ETH)
+                            </span>
+                          </div>
+
+                          <div className="w-full h-3 bg-zinc-800 rounded-lg overflow-hidden">
+                            <div
+                              className={`h-full rounded-lg transition-all ${
+                                idx === 0 ? "bg-blue-600" : "bg-purple-600"
+                              }`}
+                              style={{ width: `${pct}%` }}
+                            ></div>
+                          </div>
+                        </div>
+
+                        {bet.active && (
+                          <button
+                            onClick={() => openBetModal(idx)}
+                            className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors whitespace-nowrap"
+                          >
+                            Bet
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* IMAGE */}
+            {bet.imageUrl && (
+              <div className="flex justify-center">
+                <img
+                  src={bet.imageUrl}
+                  alt={bet.title}
+                  className="w-48 h-48 object-cover rounded-xl shadow-lg hover:scale-105 transition-transform"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* BET MODAL */}
+      {showModal && !placing && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 px-4">
           <div className="bg-gray-900 border border-zinc-700 rounded-2xl p-6 max-w-md w-full">
             <h2 className="text-2xl font-bold mb-4">Place Your Bet</h2>
-
-            {/* modal content */}
+            ...
           </div>
+        </div>
+      )}
+
+      {/* PROCESSING MODAL */}
+      {placing && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 px-4">
+          ...
         </div>
       )}
     </div>
