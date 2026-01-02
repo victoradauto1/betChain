@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import PageHeaderActions from "../components/PageHeaderActions";
-import { useBetChain } from "../context/BetChainContext";
 
 /**
  * Home - Main page displaying the last 3 bets
@@ -15,19 +14,28 @@ import { useBetChain } from "../context/BetChainContext";
  * 2. Loop from 1 to nextId fetching data for each bet
  * 3. Display the 3 most recent bets (reversed order)
  */
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0x3d490A5bE3da102790E59DBa4afb811941589A2b";
+import BetChainABI from "../abi/BetChain.json";
+
 export default function Home() {
-  const { contract } = useBetChain();
   const [bets, setBets] = useState([]);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     const loadBets = async () => {
-      if (!contract) return;
+      if (!window.ethereum) {
+        console.error("MetaMask not detected");
+        return;
+      }
 
       setLoading(true);
       try {
-        const nextId = await contract.methods.nextId().call();
+        // ✅ Provider independente - funciona SEM carteira conectada
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, BetChainABI, provider);
+
+        const nextId = await contract.nextId();
         const total = Number(nextId);
 
         if (total === 0) {
@@ -38,10 +46,9 @@ export default function Home() {
 
         const betsList = [];
 
-        // Loop starts at 1 (contract bet IDs start at 1)
         for (let i = 1; i <= total; i++) {
           try {
-            const result = await contract.methods.getBetFullInfo(i).call();
+            const result = await contract.getBetFullInfo(i);
 
             betsList.push({
               id: i,
@@ -63,7 +70,6 @@ export default function Home() {
           }
         }
 
-        // Reverse to show the most recent bets first
         setBets(betsList.reverse());
       } catch (err) {
         console.error("Error loading bets:", err);
@@ -74,7 +80,7 @@ export default function Home() {
     };
 
     loadBets();
-  }, [contract]);
+  }, []); // ✅ Sem dependências - carrega independente de carteira
 
   return (
     <div className="min-h-screen text-white flex flex-col items-center px-6 py-10 relative overflow-hidden">
@@ -87,7 +93,10 @@ export default function Home() {
         <PageHeaderActions title="Last Bets" isHome />
 
         {loading ? (
-          <p className="text-gray-400 mt-10">Loading bets...</p>
+          <div className="flex flex-col items-center mt-10">
+            <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="text-gray-400">Loading bets...</p>
+          </div>
         ) : bets.length === 0 ? (
           <p className="text-gray-400 mt-10">No bets found yet.</p>
         ) : (
@@ -134,3 +143,4 @@ export default function Home() {
     </div>
   );
 }
+

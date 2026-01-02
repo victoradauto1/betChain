@@ -25,12 +25,9 @@ export default function AllBets() {
         return;
       }
 
+      // ✅ Provider independente - funciona SEM carteira conectada
       const provider = new ethers.BrowserProvider(window.ethereum);
-      const contract = new ethers.Contract(
-        CONTRACT_ADDRESS,
-        contractABI,
-        provider
-      );
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, provider);
 
       const totalBets = await contract.getTotalBets();
       const total = Number(totalBets);
@@ -41,23 +38,9 @@ export default function AllBets() {
         return;
       }
 
-      // getAllBets returns 9 arrays:
-      // ids, creators, titles, imageUrls, pools, actives, finals, optionsCounts, deadlines
       const result = await contract.getAllBets(0, total);
+      const [ids, creators, titles, imageUrls, pools, actives, finals, optionsCounts, deadlines] = result;
 
-      const [
-        ids,
-        creators,
-        titles,
-        imageUrls,
-        pools,
-        actives,
-        finals,
-        optionsCounts,
-        deadlines,
-      ] = result;
-
-      // Convert parallel arrays into structured objects
       const formatted = ids.map((id, index) => ({
         id: Number(id),
         title: titles[index],
@@ -87,7 +70,10 @@ export default function AllBets() {
       <h1 className="text-4xl font-bold text-center mb-10">All Bets</h1>
 
       {loading ? (
-        <p className="text-center text-gray-300">Loading bets...</p>
+        <div className="flex flex-col items-center">
+          <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-center text-gray-300">Loading bets...</p>
+        </div>
       ) : bets.length === 0 ? (
         <p className="text-center text-gray-400">No bets found.</p>
       ) : (
@@ -102,8 +88,7 @@ export default function AllBets() {
                 />
                 <h2 className="text-xl font-semibold mb-2">{bet.title}</h2>
                 <p className="text-sm text-gray-400">
-                  Creator: {bet.creator.slice(0, 6)}...
-                  {bet.creator.slice(-4)}
+                  Creator: {bet.creator.slice(0, 6)}...{bet.creator.slice(-4)}
                 </p>
                 <p
                   className={`mt-2 text-sm font-semibold ${
