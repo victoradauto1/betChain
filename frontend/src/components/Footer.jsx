@@ -9,7 +9,7 @@ export default function Footer() {
       <div className="w-full py-6 flex flex-col items-center">
         <div className="flex items-center gap-8">
 
-          <p className="text-sm">&copy; {currentYear} BetCandidate</p>
+          <p className="text-sm">&copy; {currentYear} BetChain</p>
 
           <nav className="flex gap-6">
             <a href="/" className="hover:text-white transition">

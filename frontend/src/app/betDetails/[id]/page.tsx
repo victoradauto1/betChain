@@ -21,29 +21,23 @@ export default function BetDetails({ params }) {
 
   useEffect(() => {
     async function fetchBet() {
-      // ✅ Try to fetch from the contract first
+      // ✅ Tenta buscar do contrato primeiro
       if (contract && betId) {
         try {
           console.log(`🔍 Fetching bet #${betId} from contract...`);
-
-          // ✅ Web3 returns an OBJECT, not an array
+          
+          // ✅ Web3 retorna OBJETO, não array
           const result = await contract.methods.getBetFullInfo(betId).call();
           console.log("📦 Raw result from contract:", result);
 
           const optionsResult = await contract.methods.getBetOptions(betId).call();
           console.log("📦 Options result:", optionsResult);
 
-          // ✅ Access as object (Web3 style)
-          const options = (optionsResult.names || optionsResult[0]).map(
-            (name, i) => ({
-              name,
-              amount: Number(
-                ethers.formatEther(
-                  (optionsResult.totals || optionsResult[1])[i]
-                )
-              ),
-            })
-          );
+          // ✅ Acessar como objeto (Web3 style)
+          const options = (optionsResult.names || optionsResult[0]).map((name, i) => ({
+            name,
+            amount: Number(ethers.formatEther((optionsResult.totals || optionsResult[1])[i])),
+          }));
 
           setBet({
             id: betId,
@@ -65,16 +59,13 @@ export default function BetDetails({ params }) {
 
           console.log("✅ Bet loaded successfully from contract");
           setLoading(false);
-          return; // ✅ Success, no need for fallback
+          return; // ✅ Sucesso, não precisa do fallback
         } catch (err) {
-          console.log(
-            "⚠️ Bet not found in contract, trying mock fallback...",
-            err.message
-          );
+          console.log("⚠️ Bet not found in contract, trying mock fallback...", err.message);
         }
       }
 
-      // 🔄 FALLBACK: Try to fetch from mock data
+      // 🔄 FALLBACK: Tenta buscar no mock
       const mockBet = mockBets.find((b) => b.id === betId);
 
       if (mockBet) {
@@ -130,7 +121,7 @@ export default function BetDetails({ params }) {
       setBetAmount("");
       setSelectedOption(null);
 
-      // Reload bet data
+      // Recarregar dados da aposta
       window.location.reload();
     } catch (err) {
       console.error("Failed to place bet:", err);
@@ -257,12 +248,64 @@ export default function BetDetails({ params }) {
         </div>
       </div>
 
-      {/* BET MODAL */}
+      {/* MODAL DE APOSTA */}
       {showModal && !placing && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 px-4">
           <div className="bg-gray-900 border border-zinc-700 rounded-2xl p-6 max-w-md w-full">
             <h2 className="text-2xl font-bold mb-4">Place Your Bet</h2>
-            ...
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold mb-2">
+                  Selected Option:
+                </label>
+                <div className="px-4 py-2 bg-gray-800 rounded-lg">
+                  {bet.options[selectedOption]?.name}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-2">
+                  Bet Amount (ETH):
+                </label>
+                <input
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  value={betAmount}
+                  onChange={(e) => setBetAmount(e.target.value)}
+                  placeholder="0.01"
+                  className="w-full px-4 py-2 bg-gray-800 border border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                />
+              </div>
+
+              {!account && (
+                <div className="text-yellow-400 text-sm">
+                  ⚠️ Please connect your wallet to place a bet
+                </div>
+              )}
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowModal(false);
+                    setBetAmount("");
+                    setSelectedOption(null);
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold transition-colors"
+                  disabled={placing}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handlePlaceBet}
+                  disabled={placing || !account}
+                  className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold transition-colors"
+                >
+                  {placing ? "Placing..." : "Confirm Bet"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -270,7 +313,45 @@ export default function BetDetails({ params }) {
       {/* PROCESSING MODAL */}
       {placing && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 px-4">
-          ...
+          <div className="bg-linear-to-br from-gray-900 to-gray-800 border-2 border-indigo-500 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
+            <div className="flex justify-center mb-6">
+              <div className="relative">
+                <div className="w-20 h-20 border-4 border-indigo-500/30 rounded-full"></div>
+                <div className="w-20 h-20 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin absolute top-0"></div>
+              </div>
+            </div>
+
+            <h3 className="text-2xl font-bold text-white mb-3">
+              Processing Your Bet
+            </h3>
+            <p className="text-gray-300 mb-2">
+              Your bet is being recorded on the blockchain.
+            </p>
+            <p className="text-sm text-gray-400">
+              Please confirm the transaction in MetaMask and wait for confirmation...
+            </p>
+
+            <div className="mt-6 space-y-2 text-left">
+              <div className="flex items-center gap-3 text-sm">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-gray-300">Awaiting wallet confirmation</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                <span className="text-gray-300">Broadcasting to network</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span className="text-gray-400">Mining transaction...</span>
+              </div>
+            </div>
+
+            <div className="mt-6 p-4 bg-indigo-900/30 rounded-lg border border-indigo-500/30">
+              <p className="text-xs text-gray-400">
+                ⏱️ This process usually takes 10–15 seconds on Sepolia testnet
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>
