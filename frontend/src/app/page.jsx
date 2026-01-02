@@ -7,14 +7,18 @@ import { useEffect, useState } from "react";
 import PageHeaderActions from "../components/PageHeaderActions";
 
 /**
- * Home - Main page displaying the last 3 bets
+ * Home
  *
- * Flow:
- * 1. Fetch nextId from the contract (total number of created bets)
- * 2. Loop from 1 to nextId fetching data for each bet
- * 3. Display the 3 most recent bets (reversed order)
+ * Displays the 3 most recent bets created on the contract.
+ *
+ * Data flow:
+ * - Fetch total number of bets from `nextId`
+ * - Retrieve full info for each bet
+ * - Render the last 3 bets in reverse order (most recent first)
  */
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0x3d490A5bE3da102790E59DBa4afb811941589A2b";
+const CONTRACT_ADDRESS =
+  process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ||
+  "0x3d490A5bE3da102790E59DBa4afb811941589A2b";
 import BetChainABI from "../abi/BetChain.json";
 
 export default function Home() {
@@ -31,9 +35,12 @@ export default function Home() {
 
       setLoading(true);
       try {
-        // ✅ Provider independente - funciona SEM carteira conectada
         const provider = new ethers.BrowserProvider(window.ethereum);
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, BetChainABI, provider);
+        const contract = new ethers.Contract(
+          CONTRACT_ADDRESS,
+          BetChainABI,
+          provider
+        );
 
         const nextId = await contract.nextId();
         const total = Number(nextId);
@@ -80,7 +87,7 @@ export default function Home() {
     };
 
     loadBets();
-  }, []); // ✅ Sem dependências - carrega independente de carteira
+  }, []);
 
   return (
     <div className="min-h-screen text-white flex flex-col items-center px-6 py-10 relative overflow-hidden">
@@ -143,4 +150,3 @@ export default function Home() {
     </div>
   );
 }
-

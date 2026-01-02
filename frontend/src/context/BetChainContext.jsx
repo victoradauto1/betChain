@@ -4,11 +4,23 @@ import Web3 from "web3";
 import { createContext, useContext, useEffect, useState } from "react";
 import BetChainABI from "../abi/BetChain.json";
 
-const TARGET_CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID || "0xaa36a7";
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0x3d490A5bE3da102790E59DBa4afb811941589A2b";
+const TARGET_CHAIN_ID =
+  process.env.NEXT_PUBLIC_CHAIN_ID || "0xaa36a7";
+const CONTRACT_ADDRESS =
+  process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ||
+  "0x3d490A5bE3da102790E59DBa4afb811941589A2b";
 
 export const BetChainContext = createContext(null);
 
+/**
+ * BetChainProvider
+ *
+ * Manages wallet connection, network validation and
+ * write access to the BetChain smart contract.
+ *
+ * Read operations should NOT depend on this context
+ * to allow public access without a connected wallet.
+ */
 export const BetChainProvider = ({ children }) => {
   const [web3, setWeb3] = useState(null);
   const [account, setAccount] = useState(null);
@@ -71,34 +83,30 @@ export const BetChainProvider = ({ children }) => {
       const accounts = await window.ethereum.request({
         method: "eth_requestAccounts",
       });
+
       await setupProvider(window.ethereum, accounts[0]);
-      
-      // ✅ Remove flag de desconexão manual ao conectar
+
       sessionStorage.removeItem("walletManuallyDisconnected");
     } catch (err) {
       console.error("Wallet connection error:", err);
     }
   };
 
-  // ✅ DISCONNECT FUNCIONANDO
   const disconnectWallet = () => {
     setAccount(null);
     setContract(null);
     setWeb3(null);
-    
-    // ✅ Usa sessionStorage (só persiste na aba atual)
-    // Expira quando fecha o browser
+
     sessionStorage.setItem("walletManuallyDisconnected", "true");
   };
 
   const checkWalletConnection = async () => {
     if (!window.ethereum) return;
 
-    // ✅ Se desconectou manualmente, não reconecta automaticamente
-    const manuallyDisconnected = sessionStorage.getItem("walletManuallyDisconnected");
-    if (manuallyDisconnected === "true") {
-      return;
-    }
+    const manuallyDisconnected = sessionStorage.getItem(
+      "walletManuallyDisconnected"
+    );
+    if (manuallyDisconnected === "true") return;
 
     try {
       const accounts = await window.ethereum.request({
@@ -121,7 +129,6 @@ export const BetChainProvider = ({ children }) => {
       window.ethereum.on("accountsChanged", (accs) => {
         if (accs.length > 0) {
           setAccount(accs[0]);
-          // ✅ Remove flag se trocar de conta no MetaMask
           sessionStorage.removeItem("walletManuallyDisconnected");
         } else {
           setAccount(null);
@@ -143,7 +150,7 @@ export const BetChainProvider = ({ children }) => {
         account,
         contract,
         connectWallet,
-        disconnectWallet, // ✅ Agora funciona
+        disconnectWallet,
       }}
     >
       {children}

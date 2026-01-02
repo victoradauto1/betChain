@@ -25,7 +25,6 @@ export default function AllBets() {
         return;
       }
 
-      // ✅ Provider independente - funciona SEM carteira conectada
       const provider = new ethers.BrowserProvider(window.ethereum);
       const contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, provider);
 
@@ -39,7 +38,17 @@ export default function AllBets() {
       }
 
       const result = await contract.getAllBets(0, total);
-      const [ids, creators, titles, imageUrls, pools, actives, finals, optionsCounts, deadlines] = result;
+      const [
+        ids,
+        creators,
+        titles,
+        imageUrls,
+        pools,
+        actives,
+        finals,
+        optionsCounts,
+        deadlines,
+      ] = result;
 
       const formatted = ids.map((id, index) => ({
         id: Number(id),

@@ -5,16 +5,26 @@ import { useEffect, useState } from "react";
 import PageHeaderActions from "../../../components/PageHeaderActions";
 import { useBetChain } from "../../../context/BetChainContext";
 
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0x3d490A5bE3da102790E59DBa4afb811941589A2b";
+const CONTRACT_ADDRESS =
+  process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ||
+  "0x3d490A5bE3da102790E59DBa4afb811941589A2b";
 import BetChainABI from "../../../abi/BetChain.json";
 
+/**
+ * BetDetails
+ *
+ * Displays full information for a specific bet.
+ * Read operations are performed using a standalone provider
+ * to allow public access without a connected wallet.
+ *
+ * Wallet connection is required only to place a bet.
+ */
 export default function BetDetails({ params }) {
   const { id } = params;
   const betId = Number(id);
 
-  // ✅ Só usa Context para ESCREVER (apostar)
-  // Leitura usa provider independente
-  const { account, web3, contract: contextContract, connectWallet } = useBetChain();
+  const { account, web3, contract: contextContract, connectWallet } =
+    useBetChain();
 
   const [bet, setBet] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -33,30 +43,42 @@ export default function BetDetails({ params }) {
           return;
         }
 
-        // ✅ Provider independente - funciona SEM carteira conectada
         const provider = new ethers.BrowserProvider(window.ethereum);
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, BetChainABI, provider);
+        const contract = new ethers.Contract(
+          CONTRACT_ADDRESS,
+          BetChainABI,
+          provider
+        );
 
         const result = await contract.getBetFullInfo(betId);
         const optionsResult = await contract.getBetOptions(betId);
 
-        const options = (optionsResult.names || optionsResult[0]).map((name, i) => ({
-          name,
-          amount: Number(ethers.formatEther((optionsResult.totals || optionsResult[1])[i])),
-        }));
+        const options = (optionsResult.names || optionsResult[0]).map(
+          (name, i) => ({
+            name,
+            amount: Number(
+              ethers.formatEther(
+                (optionsResult.totals || optionsResult[1])[i]
+              )
+            ),
+          })
+        );
 
         setBet({
           id: betId,
           title: result.title || result[1],
           description: result.description || result[2],
           creator: result.creator || result[0],
-          amount: `${ethers.formatEther(result.totalPool || result[4])} ETH`,
+          amount: `${ethers.formatEther(
+            result.totalPool || result[4]
+          )} ETH`,
           active: result.active || result[5],
           finalized: result.finalized || result[6],
           imageUrl: result.imageUrl || result[3],
           deadline: Number(result.deadline || result[8]),
           winningOption:
-            (result.winningOption || result[9]) !== "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+            (result.winningOption || result[9]) !==
+            "115792089237316195423570985008687907853269984665640564039457584007913129639935"
               ? Number(result.winningOption || result[9])
               : null,
           options,
@@ -71,18 +93,17 @@ export default function BetDetails({ params }) {
     }
 
     fetchBet();
-  }, [betId]); // ✅ Sem dependência de carteira
+  }, [betId]);
 
   const handlePlaceBet = async () => {
-    // ✅ Se não tiver carteira, oferece conectar
     if (!account) {
       const userWantsToConnect = confirm(
         "You need to connect your wallet to place a bet. Connect now?"
       );
-      
+
       if (userWantsToConnect) {
         await connectWallet();
-        return; // Usuário precisa clicar novamente após conectar
+        return;
       }
       return;
     }
@@ -111,7 +132,6 @@ export default function BetDetails({ params }) {
       setBetAmount("");
       setSelectedOption(null);
 
-      // Recarrega dados da aposta
       window.location.reload();
     } catch (err) {
       console.error("Failed to place bet:", err);
@@ -149,7 +169,9 @@ export default function BetDetails({ params }) {
       <div className="min-h-screen flex items-center justify-center text-red-400">
         <div className="text-center">
           <p className="text-2xl mb-4">❌ Bet not found</p>
-          <p className="text-sm text-gray-400">This bet may not exist or there was an error loading it.</p>
+          <p className="text-sm text-gray-400">
+            This bet may not exist or there was an error loading it.
+          </p>
         </div>
       </div>
     );
@@ -177,10 +199,14 @@ export default function BetDetails({ params }) {
 
               <div className="space-y-1 text-gray-300">
                 <p>
-                  <span className="font-semibold text-white">Creator:</span> {bet.creator}
+                  <span className="font-semibold text-white">Creator:</span>{" "}
+                  {bet.creator}
                 </p>
                 <p>
-                  <span className="font-semibold text-white">Total Pool:</span> {bet.amount}
+                  <span className="font-semibold text-white">
+                    Total Pool:
+                  </span>{" "}
+                  {bet.amount}
                 </p>
                 <p>
                   <span className="font-semibold text-white">Status:</span>{" "}
@@ -192,7 +218,8 @@ export default function BetDetails({ params }) {
                 <h3 className="text-lg font-semibold">Bet Distribution</h3>
 
                 {bet.options.map((opt, idx) => {
-                  const pct = totalAmount > 0 ? (opt.amount / totalAmount) * 100 : 0;
+                  const pct =
+                    totalAmount > 0 ? (opt.amount / totalAmount) * 100 : 0;
 
                   return (
                     <div key={idx} className="space-y-2">
@@ -208,7 +235,9 @@ export default function BetDetails({ params }) {
                           <div className="w-full h-3 bg-zinc-800 rounded-lg overflow-hidden">
                             <div
                               className={`h-full rounded-lg transition-all ${
-                                idx === 0 ? "bg-blue-600" : "bg-purple-600"
+                                idx === 0
+                                  ? "bg-blue-600"
+                                  : "bg-purple-600"
                               }`}
                               style={{ width: `${pct}%` }}
                             ></div>
@@ -243,7 +272,6 @@ export default function BetDetails({ params }) {
         </div>
       </div>
 
-      {/* MODAL DE APOSTA */}
       {showModal && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 px-4">
           <div className="bg-gray-900 border border-zinc-700 rounded-2xl p-6 max-w-md w-full">
@@ -251,12 +279,18 @@ export default function BetDetails({ params }) {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold mb-2">Selected Option:</label>
-                <div className="px-4 py-2 bg-gray-800 rounded-lg">{bet.options[selectedOption]?.name}</div>
+                <label className="block text-sm font-semibold mb-2">
+                  Selected Option:
+                </label>
+                <div className="px-4 py-2 bg-gray-800 rounded-lg">
+                  {bet.options[selectedOption]?.name}
+                </div>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2">Bet Amount (ETH):</label>
+                <label className="block text-sm font-semibold mb-2">
+                  Bet Amount (ETH):
+                </label>
                 <input
                   type="number"
                   step="0.001"
@@ -297,7 +331,11 @@ export default function BetDetails({ params }) {
                   disabled={placing}
                   className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold transition-colors"
                 >
-                  {placing ? "Placing..." : account ? "Confirm Bet" : "Connect & Bet"}
+                  {placing
+                    ? "Placing..."
+                    : account
+                    ? "Confirm Bet"
+                    : "Connect & Bet"}
                 </button>
               </div>
             </div>
@@ -305,7 +343,6 @@ export default function BetDetails({ params }) {
         </div>
       )}
 
-      {/* MODAL DE LOADING */}
       {placing && (
         <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-60 px-4">
           <div className="bg-linear-to-br from-gray-900 to-gray-800 border-2 border-green-500 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
@@ -316,12 +353,20 @@ export default function BetDetails({ params }) {
               </div>
             </div>
 
-            <h3 className="text-2xl font-bold text-white mb-3">Processing Your Bet</h3>
-            <p className="text-gray-300 mb-2">Waiting for blockchain confirmation...</p>
-            <p className="text-sm text-gray-400">Please confirm in MetaMask and do not close this window.</p>
+            <h3 className="text-2xl font-bold text-white mb-3">
+              Processing Your Bet
+            </h3>
+            <p className="text-gray-300 mb-2">
+              Waiting for blockchain confirmation...
+            </p>
+            <p className="text-sm text-gray-400">
+              Please confirm in MetaMask and do not close this window.
+            </p>
 
             <div className="mt-6 p-4 bg-green-900/30 rounded-lg border border-green-500/30">
-              <p className="text-xs text-gray-400">⏱️ This usually takes 10-15 seconds</p>
+              <p className="text-xs text-gray-400">
+                ⏱️ This usually takes 10-15 seconds
+              </p>
             </div>
           </div>
         </div>
