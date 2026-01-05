@@ -16,9 +16,11 @@ import PageHeaderActions from "../components/PageHeaderActions";
  * - Retrieve full info for each bet
  * - Render the last 3 bets in reverse order (most recent first)
  */
-const CONTRACT_ADDRESS =
-  process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ||
-  "0x3d490A5bE3da102790E59DBa4afb811941589A2b";
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+
+if (!CONTRACT_ADDRESS) {
+  throw new Error("Missing NEXT_PUBLIC_CONTRACT_ADDRESS environment variable");
+}
 import BetChainABI from "../abi/BetChain.json";
 
 export default function Home() {
