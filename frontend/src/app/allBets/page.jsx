@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ethers } from "ethers";
 import contractABI from "../../abi/BetChain.json";
+import { getReadOnlyProvider } from "../../utils/web3Provider"; // ✅ ADDED
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
@@ -19,13 +20,7 @@ export default function AllBets() {
 
   const fetchAllBets = async () => {
     try {
-      if (!window.ethereum) {
-        console.error("MetaMask not detected");
-        setLoading(false);
-        return;
-      }
-
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = getReadOnlyProvider(); // ✅ CHANGED (was: new ethers.BrowserProvider(window.ethereum))
       const contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, provider);
 
       const totalBets = await contract.getTotalBets();

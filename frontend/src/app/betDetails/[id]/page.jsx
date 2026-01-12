@@ -4,6 +4,7 @@ import { ethers } from "ethers";
 import { useEffect, useState } from "react";
 import PageHeaderActions from "../../../components/PageHeaderActions";
 import { useBetChain } from "../../../context/BetChainContext";
+import { getReadOnlyProvider } from "../../../utils/web3Provider"; // ✅ ADDED
 
 const CONTRACT_ADDRESS =
   process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ||
@@ -36,14 +37,7 @@ export default function BetDetails({ params }) {
   useEffect(() => {
     async function fetchBet() {
       try {
-        if (!window.ethereum) {
-          console.error("MetaMask not detected");
-          setBet(null);
-          setLoading(false);
-          return;
-        }
-
-        const provider = new ethers.BrowserProvider(window.ethereum);
+        const provider = getReadOnlyProvider(); // ✅ CHANGED (was: new ethers.BrowserProvider(window.ethereum))
         const contract = new ethers.Contract(
           CONTRACT_ADDRESS,
           BetChainABI,

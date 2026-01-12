@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import PageHeaderActions from "../components/PageHeaderActions";
+import { getReadOnlyProvider } from "../utils/web3Provider"; 
 
 /**
  * Home
@@ -30,14 +31,9 @@ export default function Home() {
 
   useEffect(() => {
     const loadBets = async () => {
-      if (!window.ethereum) {
-        console.error("MetaMask not detected");
-        return;
-      }
-
       setLoading(true);
       try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
+        const provider = getReadOnlyProvider(); // ✅ CHANGED (was: new ethers.BrowserProvider(window.ethereum))
         const contract = new ethers.Contract(
           CONTRACT_ADDRESS,
           BetChainABI,
