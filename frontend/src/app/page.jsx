@@ -35,7 +35,7 @@ export default function Home() {
       setLoading(true);
 
       try {
-        const provider = getReadOnlyProvider();
+        const provider = await getReadOnlyProvider();
         const contract = new ethers.Contract(
           CONTRACT_ADDRESS,
           BetChainABI,
