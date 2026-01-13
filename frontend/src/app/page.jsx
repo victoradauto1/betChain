@@ -19,8 +19,6 @@ import { getReadOnlyProvider } from "../utils/web3Provider";
  */
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
-console.log("[Home] CONTRACT_ADDRESS:", CONTRACT_ADDRESS);
-
 if (!CONTRACT_ADDRESS) {
   throw new Error("Missing NEXT_PUBLIC_CONTRACT_ADDRESS environment variable");
 }
@@ -33,34 +31,21 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    console.log("[Home] useEffect triggered");
-
     const loadBets = async () => {
-      console.log("[Home] loadBets started");
       setLoading(true);
 
       try {
-        console.log("[Home] Getting read-only provider...");
         const provider = getReadOnlyProvider();
-        console.log("[Home] Provider instance:", provider);
-
-        console.log("[Home] Creating contract instance...");
         const contract = new ethers.Contract(
           CONTRACT_ADDRESS,
           BetChainABI,
           provider
         );
-        console.log("[Home] Contract instance:", contract);
 
-        console.log("[Home] Fetching nextId...");
         const nextId = await contract.nextId();
-        console.log("[Home] nextId raw:", nextId);
-
         const total = Number(nextId);
-        console.log("[Home] Total bets:", total);
 
         if (total === 0) {
-          console.log("[Home] No bets found");
           setBets([]);
           setLoading(false);
           return;
@@ -69,10 +54,8 @@ export default function Home() {
         const betsList = [];
 
         for (let i = 1; i <= total; i++) {
-          console.log(`[Home] Loading bet ${i}...`);
           try {
             const result = await contract.getBetFullInfo(i);
-            console.log(`[Home] Bet ${i} raw result:`, result);
 
             betsList.push({
               id: i,
@@ -89,18 +72,15 @@ export default function Home() {
                 ? Number(result.winningOption || result[9])
                 : null,
             });
-          } catch (err) {
-            console.error(`[Home] Error loading bet ${i}:`, err);
+          } catch {
+            // ignore individual bet loading errors
           }
         }
 
-        console.log("[Home] Final bets list:", betsList);
         setBets(betsList.reverse());
-      } catch (err) {
-        console.error("[Home] Error loading bets:", err);
+      } catch {
         setBets([]);
       } finally {
-        console.log("[Home] loadBets finished");
         setLoading(false);
       }
     };
