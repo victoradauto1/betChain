@@ -20,7 +20,7 @@ export default function AllBets() {
 
   const fetchAllBets = async () => {
     try {
-      const provider = getReadOnlyProvider(); // ✅ CHANGED (was: new ethers.BrowserProvider(window.ethereum))
+      const provider = await getReadOnlyProvider(); 
       const contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, provider);
 
       const totalBets = await contract.getTotalBets();

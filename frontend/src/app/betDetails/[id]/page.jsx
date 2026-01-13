@@ -37,7 +37,7 @@ export default function BetDetails({ params }) {
   useEffect(() => {
     async function fetchBet() {
       try {
-        const provider = getReadOnlyProvider(); // ✅ CHANGED (was: new ethers.BrowserProvider(window.ethereum))
+        const provider = await getReadOnlyProvider(); 
         const contract = new ethers.Contract(
           CONTRACT_ADDRESS,
           BetChainABI,
