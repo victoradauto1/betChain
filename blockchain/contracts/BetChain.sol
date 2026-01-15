@@ -3,375 +3,175 @@ pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-struct Option {
-    string name;
-    uint256 totalBets;
-    mapping(address => uint256) bets;
-}
 
-struct Bet {
-    address creator;
-    string title;
-    string description;
-    string imageUrl;
-    uint256 deadline;
-    Option[] options;
-    uint256 totalPool;
-    bool active;
-    bool finalized;
-    bool feeWithdrawn;
-    uint256 winningOption;
-}
+contract BinaryBet is ReentrancyGuard {
+    /*//////////////////////////////////////////////////////////////
+                                TYPES
+    //////////////////////////////////////////////////////////////*/
 
-contract BetChain is ReentrancyGuard {
-    uint256 public constant FEE = 100; // wei
-    uint256 public nextId = 0;
+    enum BetStatus {
+        OPEN,
+        CLOSED,
+        SETTLED
+    }
 
-    mapping(uint256 => Bet) private bets;
+    struct Option {
+        string name;
+        uint256 totalAmount;
+    }
 
-    event BetCreated(
-        uint256 indexed id,
-        address indexed creator,
-        string title,
-        uint256 deadline
-    );
-    event BetPlaced(
-        uint256 indexed id,
-        uint256 optionId,
-        address indexed bettor,
-        uint256 amount
-    );
-    event BetFinalized(uint256 indexed id, uint256 winningOption);
-    event PrizeWithdrawn(
-        uint256 indexed id,
-        address indexed winner,
-        uint256 amount
-    );
-    event FeeWithdrawn(
-        uint256 indexed id,
-        address indexed creator,
-        uint256 amount
-    );
+    struct Bet {
+        string title;
+        BetStatus status;
+        uint256 winningOption;
+        uint256 totalPool;
+    }
 
-    modifier validBetId(uint256 betId) {
-        require(betId != 0 && betId <= nextId, "Invalid betId");
+    /*//////////////////////////////////////////////////////////////
+                               STORAGE
+    //////////////////////////////////////////////////////////////*/
+
+    uint256 public betCount;
+
+    mapping(uint256 => Bet) public bets;
+    mapping(uint256 => Option[]) public betOptions;
+
+    // betId => optionId => user => amount
+    mapping(uint256 => mapping(uint256 => mapping(address => uint256))) public userBets;
+
+    // betId => user => total amount bet
+    mapping(uint256 => mapping(address => uint256)) public userTotalBets;
+
+    /*//////////////////////////////////////////////////////////////
+                                EVENTS
+    //////////////////////////////////////////////////////////////*/
+
+    event BetCreated(uint256 indexed betId, string title);
+    event OptionAdded(uint256 indexed betId, uint256 indexed optionId, string name);
+    event BetPlaced(uint256 indexed betId, uint256 indexed optionId, address indexed user, uint256 amount);
+    event BetClosed(uint256 indexed betId);
+    event BetSettled(uint256 indexed betId, uint256 winningOption);
+    event WinningsWithdrawn(uint256 indexed betId, address indexed user, uint256 amount);
+
+    /*//////////////////////////////////////////////////////////////
+                                ERRORS
+    //////////////////////////////////////////////////////////////*/
+
+    error BetDoesNotExist();
+    error BetNotOpen();
+    error BetNotClosed();
+    error BetNotSettled();
+    error InvalidOption();
+    error NothingToWithdraw();
+
+    /*//////////////////////////////////////////////////////////////
+                               MODIFIERS
+    //////////////////////////////////////////////////////////////*/
+
+    modifier betExists(uint256 betId) {
+        if (betId >= betCount) revert BetDoesNotExist();
         _;
     }
 
-    /**
-     * @notice Create a new bet
-     * @param title Bet title (required)
-     * @param description Bet description
-     * @param imageUrl Image URL (optional)
-     * @param optionNames Array of option names (2-10 options)
-     * @param deadline Unix timestamp (0 = no deadline)
-     */
-    function createBet(
-        string calldata title,
-        string calldata description,
-        string calldata imageUrl,
-        string[] calldata optionNames,
-        uint256 deadline
-    ) external {
-        require(optionNames.length >= 2, "At least 2 options");
-        require(optionNames.length <= 10, "Max 10 options");
-        require(bytes(title).length > 0, "Empty title");
+    /*//////////////////////////////////////////////////////////////
+                             BET MANAGEMENT
+    //////////////////////////////////////////////////////////////*/
 
-        if (deadline != 0) {
-            require(deadline > block.timestamp, "Invalid deadline");
-        }
+    function createBet(string calldata title) external {
+        Bet storage bet = bets[betCount];
+        bet.title = title;
+        bet.status = BetStatus.OPEN;
 
-        nextId++;
-        uint256 id = nextId;
-
-        Bet storage b = bets[id];
-        b.creator = msg.sender;
-        b.title = title;
-        b.description = description;
-        b.imageUrl = imageUrl;
-        b.deadline = deadline;
-        b.active = true;
-        b.finalized = false;
-        b.feeWithdrawn = false;
-        b.winningOption = type(uint256).max;
-
-        for (uint256 i = 0; i < optionNames.length; i++) {
-            b.options.push();
-            b.options[i].name = optionNames[i];
-        }
-
-        emit BetCreated(id, msg.sender, title, deadline);
+        emit BetCreated(betCount, title);
+        betCount++;
     }
 
-    /**
-     * @notice Place a bet on a specific option
-     * @param betId ID of the bet
-     * @param optionId Index of the option to bet on
-     */
-    function placeBet(
-        uint256 betId,
-        uint256 optionId
-    ) external payable validBetId(betId) {
-        Bet storage b = bets[betId];
+    function addOption(uint256 betId, string calldata name) external betExists(betId) {
+        Bet storage bet = bets[betId];
+        if (bet.status != BetStatus.OPEN) revert BetNotOpen();
 
-        require(b.active, "Bet inactive");
-        require(msg.value > 0, "Zero amount");
-        require(optionId < b.options.length, "Invalid option");
+        betOptions[betId].push(Option({
+            name: name,
+            totalAmount: 0
+        }));
 
-        if (b.deadline != 0) {
-            require(block.timestamp < b.deadline, "Deadline passed");
-        }
+        emit OptionAdded(betId, betOptions[betId].length - 1, name);
+    }
 
-        b.options[optionId].bets[msg.sender] += msg.value;
-        b.options[optionId].totalBets += msg.value;
-        b.totalPool += msg.value;
+    /*//////////////////////////////////////////////////////////////
+                              BETTING
+    //////////////////////////////////////////////////////////////*/
+
+    function placeBet(uint256 betId, uint256 optionId) external payable nonReentrant betExists(betId) {
+        Bet storage bet = bets[betId];
+        if (bet.status != BetStatus.OPEN) revert BetNotOpen();
+        if (optionId >= betOptions[betId].length) revert InvalidOption();
+        if (msg.value == 0) revert();
+
+        betOptions[betId][optionId].totalAmount += msg.value;
+        bet.totalPool += msg.value;
+
+        userBets[betId][optionId][msg.sender] += msg.value;
+        userTotalBets[betId][msg.sender] += msg.value;
 
         emit BetPlaced(betId, optionId, msg.sender, msg.value);
     }
 
-    /**
-     * @notice Finalize bet and declare winner (creator only)
-     * @param betId ID of the bet
-     * @param winningOptionId Index of the winning option
-     */
-    function finalizeBet(
-        uint256 betId,
-        uint256 winningOptionId
-    ) external validBetId(betId) {
-        Bet storage b = bets[betId];
+    /*//////////////////////////////////////////////////////////////
+                           BET FINALIZATION
+    //////////////////////////////////////////////////////////////*/
 
-        require(b.creator == msg.sender, "Not creator");
-        require(b.active, "Already finalized");
-        require(winningOptionId < b.options.length, "Invalid option");
-        require(b.totalPool > FEE, "Pool too small");
+    function closeBet(uint256 betId) external betExists(betId) {
+        Bet storage bet = bets[betId];
+        if (bet.status != BetStatus.OPEN) revert BetNotOpen();
 
-        b.active = false;
-        b.finalized = true;
-        b.winningOption = winningOptionId;
-
-        emit BetFinalized(betId, winningOptionId);
+        bet.status = BetStatus.CLOSED;
+        emit BetClosed(betId);
     }
 
-    /**
-     * @notice Withdraw prize for winners
-     * @param betId ID of the bet
-     */
-    function withdrawPrize(
-        uint256 betId
-    ) external nonReentrant validBetId(betId) {
-        Bet storage b = bets[betId];
-        require(b.finalized, "Not finalized");
-
-        uint256 winnerOpt = b.winningOption;
-
-        uint256 userBet = b.options[winnerOpt].bets[msg.sender];
-        require(userBet > 0, "No winnings");
-
-        uint256 winningPool = b.options[winnerOpt].totalBets;
-
-        uint256 prizePool = b.totalPool > FEE ? b.totalPool - FEE : 0;
-        uint256 prize = (prizePool * userBet) / winningPool;
-
-        // CEI pattern: Checks-Effects-Interactions
-        b.options[winnerOpt].bets[msg.sender] = 0;
-
-        (bool ok, ) = payable(msg.sender).call{value: prize}("");
-        require(ok, "Transfer failed");
-
-        emit PrizeWithdrawn(betId, msg.sender, prize);
-    }
-
-    /**
-     * @notice Withdraw house fee (creator only)
-     * @param betId ID of the bet
-     */
-    function withdrawFee(
-        uint256 betId
-    ) external nonReentrant validBetId(betId) {
-        Bet storage b = bets[betId];
-        require(b.finalized, "Not finalized");
-        require(b.creator == msg.sender, "Not creator");
-        require(!b.feeWithdrawn, "Fee already claimed");
-
-        uint256 fee = FEE;
-
-        // CEI pattern
-        b.feeWithdrawn = true;
-        b.totalPool -= fee;
-
-        (bool ok, ) = payable(msg.sender).call{value: fee}("");
-        require(ok, "Transfer failed");
-
-        emit FeeWithdrawn(betId, msg.sender, fee);
-    }
-
-    // ==================== VIEW FUNCTIONS ====================
-
-    /**
-     * @notice Get paginated list of all bets
-     * @param start Starting bet ID (1-indexed, use 0 to start from 1)
-     * @param count Number of bets to return
-     */
-    function getAllBets(
-        uint256 start,
-        uint256 count
-    )
+    function settleBet(uint256 betId, uint256 winningOption)
         external
-        view
-        returns (
-            uint256[] memory ids,
-            address[] memory creators,
-            string[] memory titles,
-            string[] memory imageUrls,
-            uint256[] memory pools,
-            bool[] memory actives,
-            bool[] memory finals,
-            uint256[] memory optionsCounts,
-            uint256[] memory deadlines
-        )
+        betExists(betId)
     {
-        // Auto-adjust start to 1 if 0
-        if (start == 0) start = 1;
+        Bet storage bet = bets[betId];
+        if (bet.status != BetStatus.CLOSED) revert BetNotClosed();
+        if (winningOption >= betOptions[betId].length) revert InvalidOption();
 
-        uint256 end = start + count - 1;
-        if (end > nextId) end = nextId;
+        bet.winningOption = winningOption;
+        bet.status = BetStatus.SETTLED;
 
-        // Return empty arrays if invalid range
-        if (start > end) {
-            return (
-                new uint256[](0),
-                new address[](0),
-                new string[](0),
-                new string[](0),
-                new uint256[](0),
-                new bool[](0),
-                new bool[](0),
-                new uint256[](0),
-                new uint256[](0)
-            );
-        }
-
-        uint256 size = end - start + 1;
-
-        ids = new uint256[](size);
-        creators = new address[](size);
-        titles = new string[](size);
-        imageUrls = new string[](size);
-        pools = new uint256[](size);
-        actives = new bool[](size);
-        finals = new bool[](size);
-        optionsCounts = new uint256[](size);
-        deadlines = new uint256[](size);
-
-        for (uint256 i = 0; i < size; i++) {
-            uint256 betId = start + i;
-            Bet storage b = bets[betId];
-
-            ids[i] = betId;
-            creators[i] = b.creator;
-            titles[i] = b.title;
-            imageUrls[i] = b.imageUrl;
-            pools[i] = b.totalPool;
-            actives[i] = b.active;
-            finals[i] = b.finalized;
-            optionsCounts[i] = b.options.length;
-            deadlines[i] = b.deadline;
-        }
-
-        return (
-            ids,
-            creators,
-            titles,
-            imageUrls,
-            pools,
-            actives,
-            finals,
-            optionsCounts,
-            deadlines
-        );
+        emit BetSettled(betId, winningOption);
     }
 
-    /**
-     * @notice Get complete information for a specific bet
-     * @param betId ID of the bet
-     */
-    function getBetFullInfo(
-        uint256 betId
-    )
-        external
-        view
-        validBetId(betId)
-        returns (
-            address creator,
-            string memory title,
-            string memory description,
-            string memory imageUrl,
-            uint256 totalPool,
-            bool active,
-            bool finalized,
-            uint256 optionsCount,
-            uint256 deadline,
-            uint256 winningOption
-        )
-    {
-        Bet storage b = bets[betId];
-        return (
-            b.creator,
-            b.title,
-            b.description,
-            b.imageUrl,
-            b.totalPool,
-            b.active,
-            b.finalized,
-            b.options.length,
-            b.deadline,
-            b.finalized ? b.winningOption : type(uint256).max
-        );
+    /*//////////////////////////////////////////////////////////////
+                            WITHDRAW
+    //////////////////////////////////////////////////////////////*/
+
+    function withdraw(uint256 betId) external nonReentrant betExists(betId) {
+        Bet storage bet = bets[betId];
+        if (bet.status != BetStatus.SETTLED) revert BetNotSettled();
+
+        uint256 userAmount = userBets[betId][bet.winningOption][msg.sender];
+        if (userAmount == 0) revert NothingToWithdraw();
+
+        uint256 winningPool = betOptions[betId][bet.winningOption].totalAmount;
+        uint256 payout = (bet.totalPool * userAmount) / winningPool;
+
+        // effects
+        userBets[betId][bet.winningOption][msg.sender] = 0;
+
+        // interaction
+        (bool success, ) = msg.sender.call{value: payout}("");
+        require(success);
+
+        emit WinningsWithdrawn(betId, msg.sender, payout);
     }
 
-    /**
-     * @notice Get all options for a bet with their current totals
-     * @param betId ID of the bet
-     */
-    function getBetOptions(
-        uint256 betId
-    )
-        external
-        view
-        validBetId(betId)
-        returns (string[] memory names, uint256[] memory totals)
-    {
-        Bet storage b = bets[betId];
-        uint256 len = b.options.length;
+    /*//////////////////////////////////////////////////////////////
+                              VIEW
+    //////////////////////////////////////////////////////////////*/
 
-        names = new string[](len);
-        totals = new uint256[](len);
-
-        for (uint256 i = 0; i < len; i++) {
-            names[i] = b.options[i].name;
-            totals[i] = b.options[i].totalBets;
-        }
-
-        return (names, totals);
-    }
-
-    /**
-     * @notice Get user's bet amount on a specific option
-     */
-    function getUserBetAmount(
-        uint256 betId,
-        uint256 optionId,
-        address user
-    ) external view validBetId(betId) returns (uint256) {
-        Bet storage b = bets[betId];
-        require(optionId < b.options.length, "Invalid option");
-        return b.options[optionId].bets[user];
-    }
-
-    /**
-     * @notice Get total number of bets created
-     */
-    function getTotalBets() external view returns (uint256) {
-        return nextId;
+    function getOptions(uint256 betId) external view betExists(betId) returns (Option[] memory) {
+        return betOptions[betId];
     }
 }
