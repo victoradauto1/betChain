@@ -41,10 +41,7 @@ const config: HardhatUserConfig = {
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY || "",
   },
-};
-//@ts-ignore
-config.solcover = {
-  skipFiles: ["contracts/ReentrancyAttacker.sol", "ReentrancyAttacker.sol"],
+
 };
 
 export default config;

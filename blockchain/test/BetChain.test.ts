@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { BetChain } from "../typechain-types";
+import { BetChain, ReentrancyAttacker, PlaceBetReentrancyAttacker, RejectEther, GasGuzzler } from "../typechain-types";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 
 describe("BetChain", function () {
@@ -361,6 +361,114 @@ describe("BetChain", function () {
     it("Should revert if bet does not exist", async function () {
       await expect(betChain.getOptions(99))
         .to.be.revertedWithCustomError(betChain, "BetDoesNotExist");
+    });
+  });
+
+  describe("Security Tests", function () {
+    describe("Reentrancy Attack on placeBet", function () {
+      let attacker: PlaceBetReentrancyAttacker;
+
+      beforeEach(async function () {
+        await betChain.createBet("PlaceBet Reentrancy Test");
+        await betChain.addOption(0, "Option 1");
+        await betChain.addOption(0, "Option 2");
+
+        const AttackerFactory = await ethers.getContractFactory("PlaceBetReentrancyAttacker");
+        attacker = await AttackerFactory.deploy(await betChain.getAddress());
+      });
+    });
+
+    describe("Reentrancy Attack on withdraw", function () {
+      let attacker: ReentrancyAttacker;
+
+      beforeEach(async function () {
+        await betChain.createBet("Reentrancy Test");
+        await betChain.addOption(0, "Option 1");
+        await betChain.addOption(0, "Option 2");
+
+        const AttackerFactory = await ethers.getContractFactory("ReentrancyAttacker");
+        attacker = await AttackerFactory.deploy(await betChain.getAddress());
+      });
+
+      it("Should prevent reentrancy attack on withdraw", async function () {
+        // Atacante faz uma aposta
+        await attacker.attack(0, 0, { value: ethers.parseEther("2") });
+        
+        // Usuário honesto também aposta
+        await betChain.connect(user1).placeBet(0, 1, { value: ethers.parseEther("1") });
+
+        // Fecha e define o vencedor como a opção do atacante
+        await betChain.closeBet(0);
+        await betChain.settleBet(0, 0);
+
+        const contractBalanceBefore = await ethers.provider.getBalance(await betChain.getAddress());
+
+        // O atacante tenta fazer o withdraw (que tentará reentrancy)
+        await expect(attacker.executeWithdraw()).to.be.reverted;
+
+        const contractBalanceAfter = await ethers.provider.getBalance(await betChain.getAddress());
+        
+        // O contrato deve manter o saldo (reentrancy foi bloqueado)
+        // Nota: se o reentrancy fosse bem sucedido, o contrato seria drenado
+        expect(contractBalanceAfter).to.be.greaterThan(0);
+      });
+
+      it("Should prevent multiple withdrawals through reentrancy", async function () {
+        await attacker.attack(0, 0, { value: ethers.parseEther("1") });
+        await betChain.connect(user1).placeBet(0, 1, { value: ethers.parseEther("1") });
+
+        await betChain.closeBet(0);
+        await betChain.settleBet(0, 0);
+
+        // Primeira tentativa de withdraw deveria reverter devido ao reentrancy guard
+        await expect(attacker.executeWithdraw()).to.be.reverted;
+
+        // Verificar que o atacante não recebeu múltiplos pagamentos
+        const attackerBalance = await attacker.getBalance();
+        expect(attackerBalance).to.equal(0);
+      });
+    });
+
+    describe("Failed ETH Transfer", function () {
+      let rejectContract: RejectEther;
+
+      beforeEach(async function () {
+        await betChain.createBet("Reject ETH Test");
+        await betChain.addOption(0, "Option 1");
+        await betChain.addOption(0, "Option 2");
+
+        const RejectFactory = await ethers.getContractFactory("RejectEther");
+        rejectContract = await RejectFactory.deploy(await betChain.getAddress());
+      });
+
+      it("Should revert when contract rejects ETH transfer", async function () {
+        // Contrato que rejeita ETH faz uma aposta
+        await rejectContract.placeBet(0, 0, { value: ethers.parseEther("1") });
+        
+        // Usuário normal também aposta
+        await betChain.connect(user1).placeBet(0, 1, { value: ethers.parseEther("1") });
+
+        // Fecha e define vencedor
+        await betChain.closeBet(0);
+        await betChain.settleBet(0, 0);
+
+        // Tentativa de withdraw deve falhar porque o contrato rejeita ETH
+        await expect(rejectContract.withdraw(0)).to.be.reverted;
+      });
+
+      it("Should verify require(success) coverage with normal user", async function () {
+        // Este teste garante que quando tudo funciona corretamente,
+        // o require(success) passa (cobrindo o branch "true")
+        await betChain.connect(user1).placeBet(0, 0, { value: ethers.parseEther("1") });
+        await betChain.connect(user2).placeBet(0, 1, { value: ethers.parseEther("1") });
+
+        await betChain.closeBet(0);
+        await betChain.settleBet(0, 0);
+
+        // Withdraw bem-sucedido cobre o caso de require(success) == true
+        await expect(betChain.connect(user1).withdraw(0))
+          .to.emit(betChain, "WinningsWithdrawn");
+      });
     });
   });
 

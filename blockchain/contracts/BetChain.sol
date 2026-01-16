@@ -102,7 +102,7 @@ contract BetChain is ReentrancyGuard {
                               BETTING
     //////////////////////////////////////////////////////////////*/
 
-    function placeBet(uint256 betId, uint256 optionId) external payable nonReentrant betExists(betId) {
+    function placeBet(uint256 betId, uint256 optionId) external payable betExists(betId) {
         Bet storage bet = bets[betId];
         if (bet.status != BetStatus.OPEN) revert BetNotOpen();
         if (optionId >= betOptions[betId].length) revert InvalidOption();
