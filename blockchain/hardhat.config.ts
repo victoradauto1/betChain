@@ -30,6 +30,7 @@ const config: HardhatUserConfig = {
       accounts: process.env.SEPOLIA_PRIVATE_KEY
         ? [process.env.SEPOLIA_PRIVATE_KEY]
         : [],
+        gas: 3_000_000,
     },
   },
 
