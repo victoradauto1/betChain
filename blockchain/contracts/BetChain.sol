@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-
 contract BetChain is ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
                                 TYPES
@@ -23,8 +22,10 @@ contract BetChain is ReentrancyGuard {
     struct Bet {
         string title;
         BetStatus status;
+        uint256 deadline;
         uint256 winningOption;
         uint256 totalPool;
+        bool optionsLocked;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -36,17 +37,14 @@ contract BetChain is ReentrancyGuard {
     mapping(uint256 => Bet) public bets;
     mapping(uint256 => Option[]) public betOptions;
 
-    // betId => optionId => user => amount
     mapping(uint256 => mapping(uint256 => mapping(address => uint256))) public userBets;
-
-    // betId => user => total amount bet
     mapping(uint256 => mapping(address => uint256)) public userTotalBets;
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    event BetCreated(uint256 indexed betId, string title);
+    event BetCreated(uint256 indexed betId, string title, uint256 deadline);
     event OptionAdded(uint256 indexed betId, uint256 indexed optionId, string name);
     event BetPlaced(uint256 indexed betId, uint256 indexed optionId, address indexed user, uint256 amount);
     event BetClosed(uint256 indexed betId);
@@ -63,6 +61,12 @@ contract BetChain is ReentrancyGuard {
     error BetNotSettled();
     error InvalidOption();
     error NothingToWithdraw();
+    error DeadlinePassed();
+    error InvalidDeadline();
+    error OptionsLocked();
+    error InsufficientOptions();
+    error InvalidAmount();
+    error InvalidBetState();
 
     /*//////////////////////////////////////////////////////////////
                                MODIFIERS
@@ -74,26 +78,61 @@ contract BetChain is ReentrancyGuard {
     }
 
     /*//////////////////////////////////////////////////////////////
+                    INTERNAL – DEADLINE SOVEREIGNTY
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev Syncs stored status with deadline-based logical state
+    function _syncBetStatus(uint256 betId) internal {
+        Bet storage bet = bets[betId];
+
+        if (bet.status == BetStatus.OPEN && block.timestamp >= bet.deadline) {
+            bet.status = BetStatus.CLOSED;
+            bet.optionsLocked = true;
+            emit BetClosed(betId);
+        }
+    }
+
+    /// @dev Returns logical status without mutating storage
+    function _getLogicalStatus(uint256 betId) internal view returns (BetStatus) {
+        Bet storage bet = bets[betId];
+        
+        if (bet.status == BetStatus.OPEN && block.timestamp >= bet.deadline) {
+            return BetStatus.CLOSED;
+        }
+        
+        return bet.status;
+    }
+
+    /*//////////////////////////////////////////////////////////////
                              BET MANAGEMENT
     //////////////////////////////////////////////////////////////*/
 
-    function createBet(string calldata title) external {
+    function createBet(string calldata title, uint256 deadline) external {
+        if (deadline <= block.timestamp) revert InvalidDeadline();
+
         Bet storage bet = bets[betCount];
         bet.title = title;
         bet.status = BetStatus.OPEN;
+        bet.deadline = deadline;
+        bet.optionsLocked = false;
 
-        emit BetCreated(betCount, title);
+        emit BetCreated(betCount, title, deadline);
         betCount++;
     }
 
-    function addOption(uint256 betId, string calldata name) external betExists(betId) {
+    function addOption(uint256 betId, string calldata name)
+        external
+        betExists(betId)
+    {
         Bet storage bet = bets[betId];
-        if (bet.status != BetStatus.OPEN) revert BetNotOpen();
+        _syncBetStatus(betId);
 
-        betOptions[betId].push(Option({
-            name: name,
-            totalAmount: 0
-        }));
+        if (bet.status != BetStatus.OPEN) revert BetNotOpen();
+        if (bet.optionsLocked) revert OptionsLocked();
+
+        betOptions[betId].push(
+            Option({ name: name, totalAmount: 0 })
+        );
 
         emit OptionAdded(betId, betOptions[betId].length - 1, name);
     }
@@ -102,15 +141,25 @@ contract BetChain is ReentrancyGuard {
                               BETTING
     //////////////////////////////////////////////////////////////*/
 
-    function placeBet(uint256 betId, uint256 optionId) external payable betExists(betId) {
+    function placeBet(uint256 betId, uint256 optionId)
+        external
+        payable
+        betExists(betId)
+    {
         Bet storage bet = bets[betId];
+        _syncBetStatus(betId);
+
         if (bet.status != BetStatus.OPEN) revert BetNotOpen();
         if (optionId >= betOptions[betId].length) revert InvalidOption();
-        if (msg.value == 0) revert();
+        if (betOptions[betId].length < 2) revert InsufficientOptions();
+        if (msg.value == 0) revert InvalidAmount();
+
+        if (!bet.optionsLocked) {
+            bet.optionsLocked = true;
+        }
 
         betOptions[betId][optionId].totalAmount += msg.value;
         bet.totalPool += msg.value;
-
         userBets[betId][optionId][msg.sender] += msg.value;
         userTotalBets[betId][msg.sender] += msg.value;
 
@@ -121,12 +170,11 @@ contract BetChain is ReentrancyGuard {
                            BET FINALIZATION
     //////////////////////////////////////////////////////////////*/
 
+    /// @dev Permissionless state sync after deadline
     function closeBet(uint256 betId) external betExists(betId) {
-        Bet storage bet = bets[betId];
-        if (bet.status != BetStatus.OPEN) revert BetNotOpen();
-
-        bet.status = BetStatus.CLOSED;
-        emit BetClosed(betId);
+        _syncBetStatus(betId);
+        
+        if (bets[betId].status != BetStatus.CLOSED) revert BetNotOpen();
     }
 
     function settleBet(uint256 betId, uint256 winningOption)
@@ -134,8 +182,16 @@ contract BetChain is ReentrancyGuard {
         betExists(betId)
     {
         Bet storage bet = bets[betId];
+        _syncBetStatus(betId);
+
         if (bet.status != BetStatus.CLOSED) revert BetNotClosed();
+        if (bet.totalPool == 0) revert NothingToWithdraw();
+        if (betOptions[betId].length < 2) revert InsufficientOptions();
         if (winningOption >= betOptions[betId].length) revert InvalidOption();
+        
+        if (betOptions[betId][winningOption].totalAmount == 0) {
+            revert InvalidOption();
+        }
 
         bet.winningOption = winningOption;
         bet.status = BetStatus.SETTLED;
@@ -147,31 +203,150 @@ contract BetChain is ReentrancyGuard {
                             WITHDRAW
     //////////////////////////////////////////////////////////////*/
 
-    function withdraw(uint256 betId) external nonReentrant betExists(betId) {
+    function withdraw(uint256 betId)
+        external
+        nonReentrant
+        betExists(betId)
+    {
         Bet storage bet = bets[betId];
+
         if (bet.status != BetStatus.SETTLED) revert BetNotSettled();
 
         uint256 userAmount = userBets[betId][bet.winningOption][msg.sender];
         if (userAmount == 0) revert NothingToWithdraw();
 
         uint256 winningPool = betOptions[betId][bet.winningOption].totalAmount;
+        if (winningPool == 0) revert InvalidBetState();
+
         uint256 payout = (bet.totalPool * userAmount) / winningPool;
 
-        // effects
         userBets[betId][bet.winningOption][msg.sender] = 0;
 
-        // interaction
         (bool success, ) = msg.sender.call{value: payout}("");
-        require(success);
+        require(success, "Transfer failed");
 
         emit WinningsWithdrawn(betId, msg.sender, payout);
     }
 
     /*//////////////////////////////////////////////////////////////
-                              VIEW
+                         VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function getOptions(uint256 betId) external view betExists(betId) returns (Option[] memory) {
+    function isOpen(uint256 betId)
+        external
+        view
+        betExists(betId)
+        returns (bool)
+    {
+        return _getLogicalStatus(betId) == BetStatus.OPEN;
+    }
+
+    function isExpired(uint256 betId)
+        external
+        view
+        betExists(betId)
+        returns (bool)
+    {
+        return block.timestamp >= bets[betId].deadline;
+    }
+
+    function canClose(uint256 betId)
+        external
+        view
+        betExists(betId)
+        returns (bool)
+    {
+        Bet storage bet = bets[betId];
+        return bet.status == BetStatus.OPEN && block.timestamp >= bet.deadline;
+    }
+
+    function canSettle(uint256 betId)
+        external
+        view
+        betExists(betId)
+        returns (bool)
+    {
+        BetStatus status = _getLogicalStatus(betId);
+        Bet storage bet = bets[betId];
+        
+        return status == BetStatus.CLOSED && 
+               bet.totalPool > 0 && 
+               betOptions[betId].length >= 2;
+    }
+
+    function getOptions(uint256 betId)
+        external
+        view
+        betExists(betId)
+        returns (Option[] memory)
+    {
         return betOptions[betId];
+    }
+
+    function getBetInfo(uint256 betId)
+        external
+        view
+        betExists(betId)
+        returns (
+            string memory title,
+            BetStatus storedStatus,
+            BetStatus logicalStatus,
+            uint256 deadline,
+            uint256 winningOption,
+            uint256 totalPool,
+            bool optionsLocked,
+            bool expired
+        )
+    {
+        Bet storage bet = bets[betId];
+        BetStatus logical = _getLogicalStatus(betId);
+        
+        return (
+            bet.title,
+            bet.status,
+            logical,
+            bet.deadline,
+            bet.winningOption,
+            bet.totalPool,
+            bet.optionsLocked,
+            block.timestamp >= bet.deadline
+        );
+    }
+
+    function calculatePayout(uint256 betId, address user)
+        external
+        view
+        betExists(betId)
+        returns (uint256)
+    {
+        Bet storage bet = bets[betId];
+        
+        if (bet.status != BetStatus.SETTLED) return 0;
+        
+        uint256 userAmount = userBets[betId][bet.winningOption][user];
+        if (userAmount == 0) return 0;
+        
+        uint256 winningPool = betOptions[betId][bet.winningOption].totalAmount;
+        if (winningPool == 0) return 0;
+        
+        return (bet.totalPool * userAmount) / winningPool;
+    }
+
+    function getUserBet(uint256 betId, uint256 optionId, address user)
+        external
+        view
+        betExists(betId)
+        returns (uint256)
+    {
+        return userBets[betId][optionId][user];
+    }
+
+    function getUserTotalBet(uint256 betId, address user)
+        external
+        view
+        betExists(betId)
+        returns (uint256)
+    {
+        return userTotalBets[betId][user];
     }
 }

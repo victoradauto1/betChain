@@ -1,57 +1,186 @@
-# Sample Hardhat 3 Beta Project (`mocha` and `ethers`)
+# BetChain — On-chain Betting Protocol (Portfolio Project)
 
-This project showcases a Hardhat 3 Beta project using `mocha` for tests and the `ethers` library for Ethereum interactions.
+This repository contains **BetChain**, an on-chain betting protocol implemented in Solidity, designed as a **professional portfolio project** to demonstrate smart contract architecture, state management, and security-conscious design in Ethereum-based systems.
 
-To learn more about the Hardhat 3 Beta, please visit the [Getting Started guide](https://hardhat.org/docs/getting-started#getting-started-with-hardhat-3). To share your feedback, join our [Hardhat 3 Beta](https://hardhat.org/hardhat3-beta-telegram-group) Telegram group or [open an issue](https://github.com/NomicFoundation/hardhat/issues/new) in our GitHub issue tracker.
+The goal of this project is **not commercial deployment**, but to showcase the ability to design **production-style smart contracts** with clear state transitions, minimal trust assumptions, and robust edge-case handling.
 
-## Project Overview
+---
 
-This example project includes:
+## Core Concepts
 
-- A simple Hardhat configuration file.
-- Foundry-compatible Solidity unit tests.
-- TypeScript integration tests using `mocha` and ethers.js
-- Examples demonstrating how to connect to different types of networks, including locally simulating OP mainnet.
+### 1. Deadline Sovereignty
+Bets are governed by time, not by users.
 
-## Usage
+- The `deadline` is the single source of truth for bet closure.
+- Bets automatically transition from `OPEN` → `CLOSED` once the deadline is reached.
+- Any function interaction triggers a **lazy state synchronization**, ensuring correctness without relying on a privileged operator.
 
-### Running Tests
+---
 
-To run all the tests in the project, execute the following command:
+### 2. Lazy State Synchronization
+The contract avoids continuous state updates.
 
-```shell
-npx hardhat test
-```
+- Stored state is synchronized **only when needed**.
+- Logical state (derived from `block.timestamp`) is computed on demand.
+- This prevents state drift and reduces unnecessary storage writes.
 
-You can also selectively run the Solidity or `mocha` tests:
+---
 
-```shell
-npx hardhat test solidity
-npx hardhat test mocha
-```
+### 3. Logical vs Stored State
+The contract explicitly separates:
 
-### Make a deployment to Sepolia
+- **Stored state** (persisted in storage)
+- **Logical state** (derived at runtime)
 
-This project includes an example Ignition module to deploy the contract. You can deploy this module to a locally simulated chain or to Sepolia.
+View functions always return the **logical truth**, even if storage has not yet been synchronized.
 
-To run the deployment to a local chain:
+---
 
-```shell
-npx hardhat ignition deploy ignition/modules/Counter.ts
-```
+### 4. Permissionless Lifecycle
+All lifecycle actions are permissionless:
 
-To run the deployment to Sepolia, you need an account with funds to send the transaction. The provided Hardhat configuration includes a Configuration Variable called `SEPOLIA_PRIVATE_KEY`, which you can use to set the private key of the account you want to use.
+- Anyone can close a bet after its deadline.
+- Anyone can settle a closed bet by providing the winning option.
+- Users can independently withdraw their winnings.
 
-You can set the `SEPOLIA_PRIVATE_KEY` variable using the `hardhat-keystore` plugin or by setting it as an environment variable.
+The protocol does **not depend on a centralized operator** to remain functional.
 
-To set the `SEPOLIA_PRIVATE_KEY` config variable using `hardhat-keystore`:
+---
 
-```shell
-npx hardhat keystore set SEPOLIA_PRIVATE_KEY
-```
+### 5. Defensive Design
+The contract follows a defensive programming model:
 
-After setting the variable, you can run the deployment with the Sepolia network:
+- Explicit state validation on every external call
+- Custom errors for invalid transitions
+- Idempotent behavior for lifecycle actions
+- Reentrancy protection on withdrawals
+- Effects-before-interactions pattern
 
-```shell
-npx hardhat ignition deploy --network sepolia ignition/modules/Counter.ts
-```
+---
+
+## Protocol Lifecycle
+
+1. **Bet Creation**
+   - A bet is created with a title and a future deadline.
+
+2. **Option Registration**
+   - Options can be added while the bet is open.
+   - Options are permanently locked after the first bet is placed.
+
+3. **Betting Phase**
+   - Users place ETH on a chosen option.
+   - A minimum of two options is required.
+
+4. **Automatic Closure**
+   - Once the deadline passes, the bet is logically closed.
+
+5. **Settlement**
+   - A winning option is selected.
+   - The bet transitions to `SETTLED`.
+
+6. **Withdrawals**
+   - Winners withdraw their proportional share of the total pool.
+
+---
+
+## Trust Model
+
+This project intentionally **does not implement result verification mechanisms** such as:
+
+- Oracles
+- Commit–reveal schemes
+- Multisig settlement
+- External consensus proofs
+
+The winning option is assumed to be provided by an external trusted process.
+
+This decision is **deliberate** and aligned with the project’s scope:
+
+> The focus is on **on-chain mechanics, lifecycle correctness, and architectural maturity**, not oracle engineering.
+
+---
+
+## Design Decisions (Explicit)
+
+### Why lazy state synchronization?
+To avoid:
+- Continuous storage writes
+- Reliance on cron-like automation
+- Centralized keepers
+
+State correctness is guaranteed **at the moment of interaction**.
+
+---
+
+### Why logical vs stored state separation?
+To ensure:
+- Accurate read-only views
+- No false "open" states after deadlines
+- Safer front-end and integration behavior
+
+This pattern mirrors production DeFi protocols.
+
+---
+
+### Why permissionless settlement?
+To eliminate:
+- Single points of failure
+- Operator dependence
+- Frozen funds scenarios
+
+Any user can move the protocol forward.
+
+---
+
+### Why lock options on first bet?
+To prevent:
+- Post-bet manipulation
+- Information asymmetry
+- Late option injection
+
+This ensures fairness once economic activity begins.
+
+---
+
+## Production Extensions (Out of Scope by Design)
+
+If this were a production system, the following could be added:
+
+- Oracle-based result validation (e.g. Chainlink)
+- Commit–reveal settlement for subjective outcomes
+- Multisig or DAO-controlled settlement authority
+- Dispute and challenge windows
+- Protocol fees and treasury management
+
+These features were intentionally excluded to keep the project **focused, readable, and audit-friendly**.
+
+---
+
+## Tech Stack
+
+- Solidity `^0.8.28`
+- Hardhat
+- OpenZeppelin (`ReentrancyGuard`)
+- Ethers.js
+- Mocha / Solidity tests (optional)
+
+---
+
+## Why This Project Matters
+
+This contract demonstrates:
+
+- Time-based authority
+- Clear lifecycle enforcement
+- Minimal trust assumptions
+- Gas-conscious design
+- Production-level defensive coding
+
+It is intentionally scoped to highlight **engineering maturity**, not feature quantity.
+
+---
+
+## Disclaimer
+
+This project is provided **for educational and portfolio purposes only**.  
+It has **not been audited** and should not be used in production environments.
