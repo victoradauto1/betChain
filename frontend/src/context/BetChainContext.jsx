@@ -1,161 +1,178 @@
 "use client";
 
 import Web3 from "web3";
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
+
 import BetChainABI from "../abi/BetChain.json";
 
 const TARGET_CHAIN_ID =
   process.env.NEXT_PUBLIC_CHAIN_ID || "0xaa36a7";
+
 const CONTRACT_ADDRESS =
-  process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ||
-  "0x3d490A5bE3da102790E59DBa4afb811941589A2b";
+  process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
 export const BetChainContext = createContext(null);
 
 /**
  * BetChainProvider
  *
- * Manages wallet connection, network validation and
+ * Handles wallet connection, network validation and
  * write access to the BetChain smart contract.
  *
- * Read operations should NOT depend on this context
- * to allow public access without a connected wallet.
+ * This context is intentionally focused on WRITE operations.
+ * Read-only blockchain access should NOT depend on it,
+ * allowing public usage without a connected wallet.
  */
-export const BetChainProvider = ({ children }) => {
+export function BetChainProvider({ children }) {
   const [web3, setWeb3] = useState(null);
   const [account, setAccount] = useState(null);
   const [contract, setContract] = useState(null);
+  const [isConnecting, setIsConnecting] = useState(false);
 
-  const setupProvider = async (ethereum, selectedAccount) => {
-    const web3Instance = new Web3(ethereum);
-    const contractInstance = new web3Instance.eth.Contract(
-      BetChainABI,
-      CONTRACT_ADDRESS
-    );
+  /**
+   * Derived state
+   * Indicates when the contract is ready for interaction
+   */
+  const isReady = useMemo(() => {
+    return Boolean(web3 && account && contract);
+  }, [web3, account, contract]);
 
-    setWeb3(web3Instance);
-    setAccount(selectedAccount);
-    setContract(contractInstance);
-  };
-
-  const validateNetwork = async (ethereum) => {
-    const chainId = await ethereum.request({ method: "eth_chainId" });
-
-    if (chainId !== TARGET_CHAIN_ID) {
-      try {
-        await ethereum.request({
-          method: "wallet_switchEthereumChain",
-          params: [{ chainId: TARGET_CHAIN_ID }],
-        });
-      } catch (err) {
-        if (err.code === 4902) {
-          await ethereum.request({
-            method: "wallet_addEthereumChain",
-            params: [
-              {
-                chainId: TARGET_CHAIN_ID,
-                chainName: "Sepolia Test Network",
-                rpcUrls: ["https://rpc.sepolia.org"],
-                nativeCurrency: {
-                  name: "ETH",
-                  symbol: "ETH",
-                  decimals: 18,
-                },
-                blockExplorerUrls: ["https://sepolia.etherscan.io"],
-              },
-            ],
-          });
-        } else {
-          throw err;
-        }
-      }
-    }
-  };
-
-  const connectWallet = async () => {
-    if (!window.ethereum) {
-      alert("Please install MetaMask!");
-      return;
-    }
+  /**
+   * Connects the user's wallet and initializes Web3 + contract
+   */
+  const connectWallet = useCallback(async () => {
+    if (!window.ethereum || isConnecting) return;
 
     try {
-      await validateNetwork(window.ethereum);
+      setIsConnecting(true);
+
+      const web3Instance = new Web3(window.ethereum);
+
+      const chainId = await window.ethereum.request({
+        method: "eth_chainId",
+      });
+
+      if (chainId !== TARGET_CHAIN_ID) {
+        throw new Error("Wrong network");
+      }
+
       const accounts = await window.ethereum.request({
         method: "eth_requestAccounts",
       });
 
-      await setupProvider(window.ethereum, accounts[0]);
+      const contractInstance = new web3Instance.eth.Contract(
+        BetChainABI,
+        CONTRACT_ADDRESS
+      );
 
-      sessionStorage.removeItem("walletManuallyDisconnected");
-    } catch (err) {
-      console.error("Wallet connection error:", err);
+      setWeb3(web3Instance);
+      setAccount(accounts[0]);
+      setContract(contractInstance);
+
+      sessionStorage.removeItem("walletDisconnected");
+    } catch (error) {
+      console.error("Wallet connection error:", error);
+    } finally {
+      setIsConnecting(false);
     }
-  };
+  }, [isConnecting]);
 
-  const disconnectWallet = () => {
+  /**
+   * Disconnects the wallet (UX-controlled)
+   */
+  const disconnectWallet = useCallback(() => {
+    setWeb3(null);
     setAccount(null);
     setContract(null);
-    setWeb3(null);
-
-    sessionStorage.setItem("walletManuallyDisconnected", "true");
-  };
-
-  const checkWalletConnection = async () => {
-    if (!window.ethereum) return;
-
-    const manuallyDisconnected = sessionStorage.getItem(
-      "walletManuallyDisconnected"
-    );
-    if (manuallyDisconnected === "true") return;
-
-    try {
-      const accounts = await window.ethereum.request({
-        method: "eth_accounts",
-      });
-
-      if (accounts.length > 0) {
-        await validateNetwork(window.ethereum);
-        await setupProvider(window.ethereum, accounts[0]);
-      }
-    } catch (err) {
-      console.error("Wallet check error:", err);
-    }
-  };
-
-  useEffect(() => {
-    checkWalletConnection();
-
-    if (window.ethereum) {
-      window.ethereum.on("accountsChanged", (accs) => {
-        if (accs.length > 0) {
-          setAccount(accs[0]);
-          sessionStorage.removeItem("walletManuallyDisconnected");
-        } else {
-          setAccount(null);
-          setContract(null);
-          setWeb3(null);
-        }
-      });
-
-      window.ethereum.on("chainChanged", () => {
-        window.location.reload();
-      });
-    }
+    sessionStorage.setItem("walletDisconnected", "true");
   }, []);
 
+  /**
+   * Wallet event listeners
+   * No automatic connection is performed.
+   */
+  useEffect(() => {
+    if (!window.ethereum) return;
+
+    const handleAccountsChanged = (accounts) => {
+      if (!accounts.length) {
+        disconnectWallet();
+      } else {
+        setAccount(accounts[0]);
+      }
+    };
+
+    const handleChainChanged = () => {
+      window.location.reload();
+    };
+
+    window.ethereum.on(
+      "accountsChanged",
+      handleAccountsChanged
+    );
+    window.ethereum.on("chainChanged", handleChainChanged);
+
+    return () => {
+      window.ethereum.removeListener(
+        "accountsChanged",
+        handleAccountsChanged
+      );
+      window.ethereum.removeListener(
+        "chainChanged",
+        handleChainChanged
+      );
+    };
+  }, [disconnectWallet]);
+
+  /**
+   * Context value
+   */
+  const value = useMemo(
+    () => ({
+      web3,
+      account,
+      contract,
+      isReady,
+      isConnecting,
+      connectWallet,
+      disconnectWallet,
+    }),
+    [
+      web3,
+      account,
+      contract,
+      isReady,
+      isConnecting,
+      connectWallet,
+      disconnectWallet,
+    ]
+  );
+
   return (
-    <BetChainContext.Provider
-      value={{
-        web3,
-        account,
-        contract,
-        connectWallet,
-        disconnectWallet,
-      }}
-    >
+    <BetChainContext.Provider value={value}>
       {children}
     </BetChainContext.Provider>
   );
-};
+}
 
-export const useBetChain = () => useContext(BetChainContext);
+/**
+ * Context access hook
+ */
+export function useBetChain() {
+  const context = useContext(BetChainContext);
+
+  if (!context) {
+    throw new Error(
+      "useBetChain must be used within BetChainProvider"
+    );
+  }
+
+  return context;
+}

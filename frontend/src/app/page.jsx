@@ -4,36 +4,26 @@ import { ethers } from "ethers";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import PageHeaderActions from "../components/PageHeaderActions";
-import { getReadOnlyProvider } from "../utils/web3Provider"; 
 
-/**
- * Home
- *
- * Displays the 3 most recent bets created on the contract.
- *
- * Data flow:
- * - Fetch total number of bets from `nextId`
- * - Retrieve full info for each bet
- * - Render the last 3 bets in reverse order (most recent first)
- */
+import PageHeaderActions from "../components/PageHeaderActions";
+import { getReadOnlyProvider } from "../utils/web3Provider";
+import BetChainABI from "../abi/BetChain.json";
+
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
 if (!CONTRACT_ADDRESS) {
-  throw new Error("Missing NEXT_PUBLIC_CONTRACT_ADDRESS environment variable");
+  throw new Error("Missing NEXT_PUBLIC_CONTRACT_ADDRESS");
 }
-
-import BetChainABI from "../abi/BetChain.json";
 
 export default function Home() {
   const [bets, setBets] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const loadBets = async () => {
-      setLoading(true);
+    let isMounted = true;
 
+    async function loadLastBets() {
       try {
         const provider = await getReadOnlyProvider();
         const contract = new ethers.Contract(
@@ -46,46 +36,53 @@ export default function Home() {
         const total = Number(nextId);
 
         if (total === 0) {
-          setBets([]);
-          setLoading(false);
+          if (isMounted) setBets([]);
           return;
         }
 
-        const betsList = [];
+        const fromId = Math.max(1, total - 2);
+        const ids = [];
 
-        for (let i = 1; i <= total; i++) {
-          try {
-            const result = await contract.getBetFullInfo(i);
-
-            betsList.push({
-              id: i,
-              creator: result.creator || result[0],
-              title: result.title || result[1],
-              description: result.description || result[2],
-              imageUrl: result.imageUrl || result[3],
-              totalPool: (result.totalPool || result[4]).toString(),
-              active: result.active || result[5],
-              finalized: result.finalized || result[6],
-              optionsCount: Number(result.optionsCount || result[7]),
-              deadline: Number(result.deadline || result[8]),
-              winningOption: (result.finalized || result[6])
-                ? Number(result.winningOption || result[9])
-                : null,
-            });
-          } catch {
-            // ignore individual bet loading errors
-          }
+        for (let i = total; i >= fromId; i--) {
+          ids.push(i);
         }
 
-        setBets(betsList.reverse());
-      } catch {
-        setBets([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+        const results = await Promise.all(
+          ids.map((id) => contract.getBetFullInfo(id))
+        );
 
-    loadBets();
+        const parsed = results.map((bet, index) => ({
+          id: ids[index],
+          creator: bet.creator,
+          title: bet.title,
+          description: bet.description,
+          imageUrl: bet.imageUrl,
+          totalPool: bet.totalPool,
+          active: bet.active,
+          finalized: bet.finalized,
+          optionsCount: Number(bet.optionsCount),
+          deadline: Number(bet.deadline),
+          winningOption: bet.finalized
+            ? Number(bet.winningOption)
+            : null,
+        }));
+
+        if (isMounted) {
+          setBets(parsed);
+        }
+      } catch (error) {
+        console.error("Error loading bets:", error);
+        if (isMounted) setBets([]);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    loadLastBets();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (
@@ -108,7 +105,7 @@ export default function Home() {
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
-              {bets.slice(0, 3).map((bet) => (
+              {bets.map((bet) => (
                 <div
                   key={bet.id}
                   className="bg-gray-900/70 backdrop-blur-sm p-5 rounded-2xl shadow-md hover:shadow-indigo-600/30 transition cursor-pointer"
@@ -121,10 +118,15 @@ export default function Home() {
                       className="w-full h-40 object-cover rounded-xl mb-3"
                     />
                   )}
-                  <h3 className="text-lg font-semibold mb-1">{bet.title}</h3>
+
+                  <h3 className="text-lg font-semibold mb-1">
+                    {bet.title}
+                  </h3>
+
                   <p className="text-sm text-gray-300 mb-2 line-clamp-2">
                     {bet.description}
                   </p>
+
                   <div className="flex justify-between items-center mt-3 text-sm text-gray-300">
                     <span>{bet.active ? "🟢 Active" : "🔴 Closed"}</span>
                     <span className="text-indigo-400">
