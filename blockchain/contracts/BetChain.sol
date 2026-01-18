@@ -162,11 +162,7 @@ contract BetChain is ReentrancyGuard {
 
         if (bet.status != BetStatus.OPEN) revert BetNotOpen();
         if (optionId >= betOptions[betId].length) revert InvalidOption();
-
-        // Defensive check kept for invariant protection
-        // coverage-ignore-next-line
         if (betOptions[betId].length < 2) revert InsufficientOptions();
-
         if (msg.value == 0) revert InvalidAmount();
 
         if (!bet.optionsLocked) {
@@ -206,7 +202,13 @@ contract BetChain is ReentrancyGuard {
         _syncBetStatus(betId);
 
         if (bet.status != BetStatus.CLOSED) revert BetNotClosed();
+
+        // Defensive invariant check.
+        // Unreachable in normal flow since placeBet enforces at least 2 options.
+        // Kept as a safeguard against future changes.
+        // coverage-ignore-next-line
         if (betOptions[betId].length < 2) revert InsufficientOptions();
+
         if (bet.totalPool == 0) revert NothingToWithdraw();
         if (winningOption >= betOptions[betId].length) revert InvalidOption();
         if (betOptions[betId][winningOption].totalAmount == 0)
@@ -232,7 +234,9 @@ contract BetChain is ReentrancyGuard {
 
         uint256 winningPool = betOptions[betId][bet.winningOption].totalAmount;
 
-        // Defensive invariant check
+        // Defensive invariant check.
+        // Unreachable since settleBet guarantees winning option has a non-zero pool.
+        // Kept to protect against state corruption or future changes.
         // coverage-ignore-next-line
         if (winningPool == 0) revert InvalidBetState();
 
@@ -330,6 +334,8 @@ contract BetChain is ReentrancyGuard {
         if (userAmount == 0) return 0;
 
         uint256 winningPool = betOptions[betId][bet.winningOption].totalAmount;
+
+        // Defensive check — graceful fallback for unexpected edge cases
         if (winningPool == 0) return 0;
 
         return (bet.totalPool * userAmount) / winningPool;
