@@ -5,8 +5,8 @@ import Header from "../components/Header";
 import { BetChainProvider } from "../context/BetChainContext";
 
 export const metadata = {
-  title: "BetCandidate",
-  description: "Bet on your best candidate!",
+  title: "BetChain",
+  description: "Bet on your own bet!",
   icons: {
     icon: "/icon.png",
   },

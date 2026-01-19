@@ -206,7 +206,8 @@ contract BetChain is ReentrancyGuard {
         // Defensive invariant check.
         // Unreachable in normal flow since placeBet enforces at least 2 options.
         // Kept as a safeguard against future changes.
-        // coverage-ignore-next-line
+        /* solhint-disable-next-line reason-string */
+        /* istanbul ignore next */
         if (betOptions[betId].length < 2) revert InsufficientOptions();
 
         if (bet.totalPool == 0) revert NothingToWithdraw();
@@ -237,7 +238,8 @@ contract BetChain is ReentrancyGuard {
         // Defensive invariant check.
         // Unreachable since settleBet guarantees winning option has a non-zero pool.
         // Kept to protect against state corruption or future changes.
-        // coverage-ignore-next-line
+        /* solhint-disable-next-line reason-string */
+        /* istanbul ignore next */
         if (winningPool == 0) revert InvalidBetState();
 
         uint256 payout = (bet.totalPool * userAmount) / winningPool;
@@ -336,6 +338,7 @@ contract BetChain is ReentrancyGuard {
         uint256 winningPool = betOptions[betId][bet.winningOption].totalAmount;
 
         // Defensive check — graceful fallback for unexpected edge cases
+        /* istanbul ignore next */
         if (winningPool == 0) return 0;
 
         return (bet.totalPool * userAmount) / winningPool;
