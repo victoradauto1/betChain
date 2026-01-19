@@ -1,45 +1,27 @@
-# 🎲 BetChain - Decentralized Betting Platform
+## Frontend Overview
 
-A Web3 portfolio project demonstrating blockchain integration, smart contracts, and modern frontend development.
+The frontend provides a minimal interface for interacting with the BetChain protocol.
+Its primary responsibility is to handle user-driven **write operations** via a connected wallet.
 
----
-
-## 🚀 Features
-
-- 🔗 MetaMask wallet integration  
-- 📝 Create custom bets with 2–10 options  
-- 💰 Place bets using Sepolia testnet ETH  
-- 📊 Real-time bet distribution visualization  
-- ⏰ Optional deadline system  
-- 🎨 Modern UI with TailwindCSS  
+Public read access to blockchain data is intentionally decoupled from wallet connection
+to allow unrestricted protocol exploration.
 
 ---
 
-## 🛠️ Technologies
+## BetChainProvider
 
-- **Frontend**: Next.js 14 (App Router), React, TailwindCSS  
-- **Blockchain**: Solidity, Web3.js, Ethers.js  
-- **Network**: Ethereum Sepolia Testnet  
-- **State Management**: React Context API  
+The `BetChainProvider` context is responsible for:
+- Wallet connection and network validation
+- Providing authenticated write access to the BetChain contract
+- Exposing a semantic action-based API (`actions.*`)
+- Normalizing custom smart contract errors
+
+This context is intentionally focused on **state-changing operations**.
+Read-only blockchain access should not depend on it.
 
 ---
 
-## 📦 Installation
+## Notes
 
-```bash
-# Clone repository
-git clone https://github.com/yourusername/betChain.git
-cd betChain
-
-# Install dependencies
-npm install
-
-# Create environment file
-cp .env.example .env.local
-
-# Add your contract address to .env.local
-NEXT_PUBLIC_CONTRACT_ADDRESS=0xYourContractAddress
-NEXT_PUBLIC_CHAIN_ID=0xaa36a7
-
-# Run development server
-npm run dev
+- All write operations require a connected wallet on the target network
+- Contract errors are surfaced using their custom error names when available

@@ -1,157 +1,168 @@
 "use client";
 
-import Web3 from "web3";
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-  useMemo,
-} from "react";
-
-import BetChainABI from "../abi/BetChain.json";
-
-const TARGET_CHAIN_ID =
-  process.env.NEXT_PUBLIC_CHAIN_ID || "0xaa36a7";
-
-const CONTRACT_ADDRESS =
-  process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
-
-export const BetChainContext = createContext(null);
-
 /**
  * BetChainProvider
  *
  * Handles wallet connection, network validation and
- * write access to the BetChain smart contract.
+ * authenticated WRITE access to the BetChain smart contract.
  *
- * This context is intentionally focused on WRITE operations.
- * Read-only blockchain access should NOT depend on it,
- * allowing public usage without a connected wallet.
+ * This context is intentionally scoped to WRITE operations only.
+ * It manages signer-based interactions, transaction execution
+ * and custom error propagation from the contract.
+ *
+ * Read-only blockchain access MUST NOT depend on this context,
+ * allowing public data consumption without a connected wallet.
  */
+
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
+import { BrowserProvider, Contract } from "ethers";
+import BetChainABI from "../abi/BetChain.json";
+
+const TARGET_CHAIN_ID = BigInt(process.env.NEXT_PUBLIC_CHAIN_ID || "0xaa36a7");
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+
+export const BetChainContext = createContext(null);
+
 export function BetChainProvider({ children }) {
-  const [web3, setWeb3] = useState(null);
+  const [provider, setProvider] = useState(null);
+  const [signer, setSigner] = useState(null);
   const [account, setAccount] = useState(null);
   const [contract, setContract] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
 
-  /**
-   * Derived state
-   * Indicates when the contract is ready for interaction
-   */
   const isReady = useMemo(() => {
-    return Boolean(web3 && account && contract);
-  }, [web3, account, contract]);
+    return Boolean(provider && signer && contract && account);
+  }, [provider, signer, contract, account]);
 
-  /**
-   * Connects the user's wallet and initializes Web3 + contract
-   */
   const connectWallet = useCallback(async () => {
     if (!window.ethereum || isConnecting) return;
 
     try {
       setIsConnecting(true);
 
-      const web3Instance = new Web3(window.ethereum);
+      const provider = new BrowserProvider(window.ethereum);
+      const network = await provider.getNetwork();
 
-      const chainId = await window.ethereum.request({
-        method: "eth_chainId",
-      });
-
-      if (chainId !== TARGET_CHAIN_ID) {
+      if (network.chainId !== TARGET_CHAIN_ID) {
         throw new Error("Wrong network");
       }
 
-      const accounts = await window.ethereum.request({
-        method: "eth_requestAccounts",
-      });
+      const signer = await provider.getSigner();
+      const address = await signer.getAddress();
 
-      const contractInstance = new web3Instance.eth.Contract(
+      const contract = new Contract(
+        CONTRACT_ADDRESS,
         BetChainABI,
-        CONTRACT_ADDRESS
+        signer
       );
 
-      setWeb3(web3Instance);
-      setAccount(accounts[0]);
-      setContract(contractInstance);
+      setProvider(provider);
+      setSigner(signer);
+      setAccount(address);
+      setContract(contract);
 
       sessionStorage.removeItem("walletDisconnected");
-    } catch (error) {
-      console.error("Wallet connection error:", error);
+    } catch (err) {
+      console.error("Wallet connection error:", err);
     } finally {
       setIsConnecting(false);
     }
   }, [isConnecting]);
 
-  /**
-   * Disconnects the wallet (UX-controlled)
-   */
   const disconnectWallet = useCallback(() => {
-    setWeb3(null);
+    setProvider(null);
+    setSigner(null);
     setAccount(null);
     setContract(null);
     sessionStorage.setItem("walletDisconnected", "true");
   }, []);
 
-  /**
-   * Wallet event listeners
-   * No automatic connection is performed.
-   */
+  /** ------------------------------------------------
+   * Safe transaction executor (custom errors aware)
+   * ------------------------------------------------*/
+  const executeTx = useCallback(async (txFn) => {
+    try {
+      const tx = await txFn();
+      return await tx.wait();
+    } catch (err) {
+      if (err?.errorName) {
+        throw new Error(err.errorName);
+      }
+      throw err;
+    }
+  }, []);
+
+  /** ------------------------------------------------
+   * WRITE METHODS (semantic API)
+   * ------------------------------------------------*/
+  const actions = useMemo(() => {
+    if (!contract) return null;
+
+    return {
+      createBet: (title, deadline) =>
+        executeTx(() => contract.createBet(title, deadline)),
+
+      addOption: (betId, name) =>
+        executeTx(() => contract.addOption(betId, name)),
+
+      placeBet: (betId, optionId, value) =>
+        executeTx(() =>
+          contract.placeBet(betId, optionId, { value })
+        ),
+
+      closeBet: (betId) =>
+        executeTx(() => contract.closeBet(betId)),
+
+      settleBet: (betId, winningOption) =>
+        executeTx(() => contract.settleBet(betId, winningOption)),
+
+      withdraw: (betId) =>
+        executeTx(() => contract.withdraw(betId)),
+    };
+  }, [contract, executeTx]);
+
+  /** Wallet listeners */
   useEffect(() => {
     if (!window.ethereum) return;
 
     const handleAccountsChanged = (accounts) => {
-      if (!accounts.length) {
-        disconnectWallet();
-      } else {
-        setAccount(accounts[0]);
-      }
+      if (!accounts.length) disconnectWallet();
+      else setAccount(accounts[0]);
     };
 
-    const handleChainChanged = () => {
-      window.location.reload();
-    };
+    const handleChainChanged = () => window.location.reload();
 
-    window.ethereum.on(
-      "accountsChanged",
-      handleAccountsChanged
-    );
+    window.ethereum.on("accountsChanged", handleAccountsChanged);
     window.ethereum.on("chainChanged", handleChainChanged);
 
     return () => {
-      window.ethereum.removeListener(
-        "accountsChanged",
-        handleAccountsChanged
-      );
-      window.ethereum.removeListener(
-        "chainChanged",
-        handleChainChanged
-      );
+      window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
+      window.ethereum.removeListener("chainChanged", handleChainChanged);
     };
   }, [disconnectWallet]);
 
-  /**
-   * Context value
-   */
   const value = useMemo(
     () => ({
-      web3,
+      provider,
+      signer,
       account,
       contract,
       isReady,
       isConnecting,
       connectWallet,
       disconnectWallet,
+      actions,
     }),
     [
-      web3,
+      provider,
+      signer,
       account,
       contract,
       isReady,
       isConnecting,
       connectWallet,
       disconnectWallet,
+      actions,
     ]
   );
 
@@ -162,17 +173,10 @@ export function BetChainProvider({ children }) {
   );
 }
 
-/**
- * Context access hook
- */
 export function useBetChain() {
   const context = useContext(BetChainContext);
-
   if (!context) {
-    throw new Error(
-      "useBetChain must be used within BetChainProvider"
-    );
+    throw new Error("useBetChain must be used within BetChainProvider");
   }
-
   return context;
 }

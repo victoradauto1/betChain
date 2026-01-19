@@ -1,30 +1,38 @@
-# Node modules
-/node_modules
+# =========================
+# Node / Package managers
+# =========================
+node_modules/
 
-# Compilation output
-/dist
+# =========================
+# Build / Compilation output
+# =========================
+dist/
+bundle/
 
-# pnpm deploy output
-/bundle
+# Hardhat artifacts & cache
+artifacts/
+cache/
 
-# Hardhat Build Artifacts
-/artifacts
-
-# Hardhat compilation (v2) support directory
-/cache
-
-# Typechain output
-/types
+# =========================
+# Typechain
+# =========================
+types/
 typechain-types/
 
-# Hardhat coverage reports
-/coverage
+# =========================
+# Hardhat coverage
+# =========================
+coverage/
 coverage.json
 
-# Hardhat temp files
+# =========================
+# Hardhat temp / local state
+# =========================
 hardhat-network-*
 
+# =========================
 # Environment variables
+# =========================
 .env
 .env.*
 
@@ -32,14 +40,11 @@ hardhat-network-*
 # Hardhat Ignition
 # =========================
 
-# Ignition build artifacts (bytecode, dbg, build-info)
-ignition/deployments/**/artifacts/
-ignition/deployments/**/build-info/
-ignition/deployments/**/*.dbg.json
+# Ignition deployment artifacts and execution state
+# These files are environment-specific and should not be versioned
+ignition/deployments/
 
-# Optional: ignore ignition execution journals if you don't want history
-# (COMENTE se quiser versionar deploy history)
-# ignition/deployments/**/journal.jsonl
+ignition/cache/
 
 # =========================
 # OS / Editor noise
