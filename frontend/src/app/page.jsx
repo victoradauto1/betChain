@@ -1,5 +1,20 @@
 "use client";
 
+/**
+ * Home
+ *
+ * Displays the 3 most recent bets created on the BetChain contract.
+ *
+ * This page is READ-ONLY and does NOT depend on wallet connection
+ * or BetChainContext.
+ *
+ * Data flow:
+ * - Fetch total number of bets from `betCount`
+ * - Retrieve summarized bet info via `getBetInfo`
+ * - Derive logical status client-side (OPEN / CLOSED)
+ * - Render the last 3 bets in reverse order (most recent first)
+ */
+
 import { ethers } from "ethers";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -32,40 +47,44 @@ export default function Home() {
           provider
         );
 
-        const nextId = await contract.nextId();
-        const total = Number(nextId);
+        const total = Number(await contract.betCount());
 
         if (total === 0) {
           if (isMounted) setBets([]);
           return;
         }
 
-        const fromId = Math.max(1, total - 2);
+        const fromId = Math.max(0, total - 3);
         const ids = [];
 
-        for (let i = total; i >= fromId; i--) {
+        for (let i = total - 1; i >= fromId; i--) {
           ids.push(i);
         }
 
         const results = await Promise.all(
-          ids.map((id) => contract.getBetFullInfo(id))
+          ids.map((id) => contract.getBetInfo(id))
         );
 
-        const parsed = results.map((bet, index) => ({
-          id: ids[index],
-          creator: bet.creator,
-          title: bet.title,
-          description: bet.description,
-          imageUrl: bet.imageUrl,
-          totalPool: bet.totalPool,
-          active: bet.active,
-          finalized: bet.finalized,
-          optionsCount: Number(bet.optionsCount),
-          deadline: Number(bet.deadline),
-          winningOption: bet.finalized
-            ? Number(bet.winningOption)
-            : null,
-        }));
+        const parsed = results.map((bet, index) => {
+          const [
+            title,
+            storedStatus,
+            logicalStatus,
+            deadline,
+            winningOption,
+            totalPool,
+            optionsLocked,
+            expired,
+          ] = bet;
+
+          return {
+            id: ids[index],
+            title,
+            totalPool,
+            logicalStatus,
+            deadline: Number(deadline),
+          };
+        });
 
         if (isMounted) {
           setBets(parsed);
@@ -111,24 +130,15 @@ export default function Home() {
                   className="bg-gray-900/70 backdrop-blur-sm p-5 rounded-2xl shadow-md hover:shadow-indigo-600/30 transition cursor-pointer"
                   onClick={() => router.push(`/betDetails/${bet.id}`)}
                 >
-                  {bet.imageUrl && (
-                    <img
-                      src={bet.imageUrl}
-                      alt={bet.title}
-                      className="w-full h-40 object-cover rounded-xl mb-3"
-                    />
-                  )}
-
-                  <h3 className="text-lg font-semibold mb-1">
+                  <h3 className="text-lg font-semibold mb-2">
                     {bet.title}
                   </h3>
 
-                  <p className="text-sm text-gray-300 mb-2 line-clamp-2">
-                    {bet.description}
-                  </p>
+                  <div className="flex justify-between items-center mt-4 text-sm text-gray-300">
+                    <span>
+                      {bet.logicalStatus === 0 ? "🟢 Active" : "🔴 Closed"}
+                    </span>
 
-                  <div className="flex justify-between items-center mt-3 text-sm text-gray-300">
-                    <span>{bet.active ? "🟢 Active" : "🔴 Closed"}</span>
                     <span className="text-indigo-400">
                       Pool: {ethers.formatEther(bet.totalPool)} ETH
                     </span>
