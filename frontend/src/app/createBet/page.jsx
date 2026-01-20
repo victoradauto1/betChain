@@ -6,24 +6,28 @@ import { useState } from "react";
 import { useBetChain } from "../../context/BetChainContext";
 
 /**
- * CreateBet - Form to create a new bet
+ * CreateBet
  *
- * Validations:
- * - Minimum 2 options, maximum 10
- * - Optional deadline (must be in the future)
- * - Title is required
- * - Displays a loading modal during the transaction
+ * UX preserved from the original version.
+ * Logic refactored to use BetChainContext signer-based actions.
+ *
+ * Responsibilities:
+ * - Collect bet metadata (title, description, image URL)
+ * - Validate deadline and options
+ * - Create bet on-chain
+ * - Register options sequentially
+ * - Prepare off-chain metadata for frontend display
  */
 export default function CreateBet() {
   const router = useRouter();
-  const { contract, account } = useBetChain();
+  const { actions, isReady } = useBetChain();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [deadline, setDeadline] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
   const [options, setOptions] = useState(["", ""]);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const handleOptionChange = (index, value) => {
     const updated = [...options];
@@ -32,19 +36,17 @@ export default function CreateBet() {
   };
 
   const addOption = () => {
-    if (options.length >= 10) return;
-    setOptions([...options, ""]);
+    if (options.length < 10) setOptions([...options, ""]);
   };
 
   const removeOption = (index) => {
-    if (options.length <= 2) return;
-    setOptions(options.filter((_, i) => i !== index));
+    if (options.length > 2) setOptions(options.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!contract || !account) {
+    if (!isReady || !actions) {
       alert("Wallet not connected.");
       return;
     }
@@ -55,39 +57,46 @@ export default function CreateBet() {
       return;
     }
 
+    let deadlineTimestamp = 0;
+    if (deadline) {
+      const ts = Math.floor(new Date(deadline).getTime() / 1000);
+      if (ts <= Math.floor(Date.now() / 1000)) {
+        alert("Deadline must be a future date.");
+        return;
+      }
+      deadlineTimestamp = ts;
+    }
+
     setIsProcessing(true);
 
     try {
-      let deadlineTimestamp = 0;
+      // 1️⃣ Create bet on-chain (title + deadline only)
+      const receipt = await actions.createBet(title, deadlineTimestamp);
 
-      if (deadline) {
-        const deadlineDate = new Date(deadline);
-        deadlineTimestamp = Math.floor(deadlineDate.getTime() / 1000);
-
-        if (deadlineTimestamp <= Math.floor(Date.now() / 1000)) {
-          alert("Deadline must be in the future!");
-          setIsProcessing(false);
-          return;
-        }
+      // 2️⃣ Extract betId from emitted event
+      const event = receipt.logs?.[0];
+      const betId = event?.args?.betId;
+      if (betId === undefined) {
+        throw new Error("Failed to retrieve betId from transaction.");
       }
 
-      await contract.methods
-        .createBet(
-          title,
-          description,
-          imageUrl,
-          filteredOptions,
-          deadlineTimestamp
-        )
-        .send({ from: account });
+      // 3️⃣ Register options sequentially
+      for (const option of filteredOptions) {
+        await actions.addOption(betId, option);
+      }
 
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // 4️⃣ Prepare off-chain metadata for frontend display
+      const offChainMetadata = {
+        [betId]: { title, description, imageUrl },
+      };
+      console.log("Off-chain metadata:", offChainMetadata);
 
       alert("Bet created successfully! 🎉");
       router.push("/allBets");
     } catch (err) {
-      console.error("Error creating bet:", err);
-      alert(`Error creating bet: ${err.message}`);
+      console.error("CreateBet error:", err);
+      alert(err.message || "Transaction failed.");
+    } finally {
       setIsProcessing(false);
     }
   };
@@ -119,18 +128,21 @@ export default function CreateBet() {
               onChange={setTitle}
               required
             />
+
             <Input
               label="Image URL (optional)"
               placeholder="https://example.com/banner.jpg"
               value={imageUrl}
               onChange={setImageUrl}
             />
+
             <Input
               label="Description (optional)"
               placeholder="Describe the bet context..."
               value={description}
               onChange={setDescription}
             />
+
             <Input
               label="Deadline (optional)"
               type="datetime-local"
@@ -151,9 +163,7 @@ export default function CreateBet() {
                       className="flex-1 p-3 rounded-lg bg-zinc-800 border border-zinc-700 text-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
                       placeholder={`Option ${index + 1}`}
                       value={opt}
-                      onChange={(e) =>
-                        handleOptionChange(index, e.target.value)
-                      }
+                      onChange={(e) => handleOptionChange(index, e.target.value)}
                       required
                     />
                     {options.length > 2 && index > 1 && (
@@ -173,7 +183,7 @@ export default function CreateBet() {
                 <button
                   type="button"
                   onClick={addOption}
-                  className="mt-3 px-4 py-2 rounded-xl text-sm font-semibold border border-white text-white hover:bg-gray-600 hover:text-white transition"
+                  className="mt-3 px-4 py-2 rounded-xl text-sm font-semibold border border-white text-white hover:bg-gray-600 transition"
                 >
                   + Add Option
                 </button>
@@ -213,27 +223,6 @@ export default function CreateBet() {
               confirmation...
             </p>
 
-            <div className="mt-6 space-y-2 text-left">
-              <div className="flex items-center gap-3 text-sm">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-gray-300">
-                  Awaiting wallet confirmation
-                </span>
-              </div>
-              <div className="flex items-center gap-3 text-sm">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                <span className="text-gray-300">
-                  Broadcasting to network
-                </span>
-              </div>
-              <div className="flex items-center gap-3 text-sm">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-gray-400">
-                  Mining transaction...
-                </span>
-              </div>
-            </div>
-
             <div className="mt-6 p-4 bg-indigo-900/30 rounded-lg border border-indigo-500/30">
               <p className="text-xs text-gray-400">
                 ⏱️ This process usually takes 10–15 seconds on Sepolia testnet
@@ -246,21 +235,14 @@ export default function CreateBet() {
   );
 }
 
-// Reusable Input Component
-function Input({
-  label,
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-  required = false,
-  helpText,
-}) {
+/**
+ * Reusable Input component
+ */
+function Input({ label, value, onChange, placeholder, type = "text", required = false, helpText }) {
   return (
     <div>
       <label className="block text-white font-semibold mb-1">
-        {label}
-        {required && <span className="text-red-400 ml-1">*</span>}
+        {label}{required && <span className="text-red-400 ml-1">*</span>}
       </label>
       <input
         type={type}
@@ -270,9 +252,7 @@ function Input({
         onChange={(e) => onChange(e.target.value)}
         required={required}
       />
-      {helpText && (
-        <p className="text-xs text-gray-400 mt-1">{helpText}</p>
-      )}
+      {helpText && <p className="text-xs text-gray-400 mt-1">{helpText}</p>}
     </div>
   );
 }
