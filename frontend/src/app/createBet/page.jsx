@@ -4,19 +4,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useBetChain } from "../../context/BetChainContext";
+import { saveBetMetadata } from "../../services/metadataService";
 
 /**
  * CreateBet
  *
- * UX preserved from the original version.
- * Logic refactored to use BetChainContext signer-based actions.
+ * FINAL VERSION
  *
  * Responsibilities:
  * - Collect bet metadata (title, description, image URL)
  * - Validate deadline and options
- * - Create bet on-chain
- * - Register options sequentially
- * - Prepare off-chain metadata for frontend display
+ * - Create bet on-chain (ONLY title + deadline)
+ * - Register options on-chain
+ * - Persist off-chain metadata indexed by betId
  */
 export default function CreateBet() {
   const router = useRouter();
@@ -40,7 +40,9 @@ export default function CreateBet() {
   };
 
   const removeOption = (index) => {
-    if (options.length > 2) setOptions(options.filter((_, i) => i !== index));
+    if (options.length > 2) {
+      setOptions(options.filter((_, i) => i !== index));
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -70,26 +72,28 @@ export default function CreateBet() {
     setIsProcessing(true);
 
     try {
-      // 1️⃣ Create bet on-chain (title + deadline only)
+      // 1️⃣ Create bet ON-CHAIN (title + deadline only)
       const receipt = await actions.createBet(title, deadlineTimestamp);
 
       // 2️⃣ Extract betId from emitted event
       const event = receipt.logs?.[0];
       const betId = event?.args?.betId;
-      if (betId === undefined) {
+
+      if (betId === undefined || betId === null) {
         throw new Error("Failed to retrieve betId from transaction.");
       }
 
-      // 3️⃣ Register options sequentially
+      // 3️⃣ Register options ON-CHAIN
       for (const option of filteredOptions) {
         await actions.addOption(betId, option);
       }
 
-      // 4️⃣ Prepare off-chain metadata for frontend display
-      const offChainMetadata = {
-        [betId]: { title, description, imageUrl },
-      };
-      console.log("Off-chain metadata:", offChainMetadata);
+      // 4️⃣ Persist OFF-CHAIN metadata (mock IPFS / Fleek)
+      await saveBetMetadata(betId, {
+        title,
+        description,
+        imageUrl,
+      });
 
       alert("Bet created successfully! 🎉");
       router.push("/allBets");
@@ -201,33 +205,15 @@ export default function CreateBet() {
         </div>
       </div>
 
-      {/* Loading Modal */}
       {isProcessing && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 px-4">
           <div className="bg-linear-to-br from-gray-900 to-gray-800 border-2 border-indigo-500 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
-            <div className="flex justify-center mb-6">
-              <div className="relative">
-                <div className="w-20 h-20 border-4 border-indigo-500/30 rounded-full"></div>
-                <div className="w-20 h-20 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin absolute top-0"></div>
-              </div>
-            </div>
-
             <h3 className="text-2xl font-bold text-white mb-3">
               Processing Transaction
             </h3>
-            <p className="text-gray-300 mb-2">
-              Your bet is being recorded on the blockchain.
+            <p className="text-gray-300">
+              Please confirm the transaction in MetaMask...
             </p>
-            <p className="text-sm text-gray-400">
-              Please confirm the transaction in MetaMask and wait for
-              confirmation...
-            </p>
-
-            <div className="mt-6 p-4 bg-indigo-900/30 rounded-lg border border-indigo-500/30">
-              <p className="text-xs text-gray-400">
-                ⏱️ This process usually takes 10–15 seconds on Sepolia testnet
-              </p>
-            </div>
           </div>
         </div>
       )}
@@ -235,9 +221,6 @@ export default function CreateBet() {
   );
 }
 
-/**
- * Reusable Input component
- */
 function Input({ label, value, onChange, placeholder, type = "text", required = false, helpText }) {
   return (
     <div>
@@ -247,7 +230,7 @@ function Input({ label, value, onChange, placeholder, type = "text", required = 
       <input
         type={type}
         placeholder={placeholder}
-        className="w-full p-3 rounded-lg bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+        className="w-full p-3 rounded-lg bg-zinc-800 border border-zinc-700 text-white"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required={required}

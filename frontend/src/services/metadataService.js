@@ -1,3 +1,5 @@
+// frontend/src/services/metadataService.js
+
 /**
  * metadataService (MOCK)
  *
@@ -5,52 +7,59 @@
  * This mock simulates a decentralized storage (IPFS / Fleek)
  * using localStorage as the backing store.
  *
- * This file MUST expose a stable interface so it can be
- * replaced later without refactoring UI components.
+ * This interface MUST remain stable so it can be replaced
+ * later without refactoring UI components.
  */
 
 const STORAGE_KEY = "betchain:metadata";
 
 /**
- * Save metadata for a given betId
+ * Save bet metadata off-chain
+ *
+ * @param {Object} metadata
+ * @param {string|number} metadata.betId
+ * @param {string} metadata.title
+ * @param {string} metadata.description
+ * @param {string} metadata.imageUrl
+ *
+ * @returns {string} metadataURI
  */
-export async function saveBetMetadata(betId, metadata) {
-  if (betId === undefined || betId === null) {
-    throw new Error("Invalid betId");
+export function saveBetMetadata(metadata) {
+  if (!metadata?.betId) {
+    throw new Error("metadata.betId is required");
   }
 
-  const stored = localStorage.getItem(STORAGE_KEY);
-  const parsed = stored ? JSON.parse(stored) : {};
+  const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
 
-  parsed[betId.toString()] = {
+  stored[metadata.betId.toString()] = {
     ...metadata,
-    betId: betId.toString(),
+    betId: metadata.betId.toString(),
     createdAt: Date.now(),
   };
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
 
-  return parsed[betId.toString()];
+  // Simulated decentralized URI (IPFS/Fleek in the future)
+  return `local://betchain/metadata/${metadata.betId}`;
 }
 
 /**
- * Retrieve metadata for a single betId
+ * Retrieve metadata for a specific bet
+ *
+ * @param {string|number} betId
+ * @returns {Object|null}
  */
-export async function getBetMetadata(betId) {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (!stored) return null;
-
-  const parsed = JSON.parse(stored);
-  return parsed[betId.toString()] || null;
+export function getBetMetadata(betId) {
+  const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+  return stored[betId?.toString()] || null;
 }
 
 /**
- * Retrieve ALL stored bet metadata
+ * Retrieve all stored bet metadata
+ *
+ * @returns {Array<Object>}
  */
-export async function getAllBetMetadata() {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (!stored) return [];
-
-  const parsed = JSON.parse(stored);
-  return Object.values(parsed);
+export function getAllBetMetadata() {
+  const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+  return Object.values(stored);
 }
