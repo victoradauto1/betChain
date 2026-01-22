@@ -122,18 +122,62 @@ contract BetChain is ReentrancyGuard {
                              BET CREATION
     //////////////////////////////////////////////////////////////*/
 
-    function createBet(string calldata title, uint256 deadline) external {
+    /// @notice Creates a bet with all options in a single transaction (RECOMMENDED)
+    /// @dev This is the primary method for creating bets in the frontend
+    /// @param title The bet title
+    /// @param deadline Unix timestamp when betting closes
+    /// @param options Array of option names (minimum 2)
+    function createBetWithOptions(
+        string calldata title,
+        uint256 deadline,
+        string[] calldata options
+    ) external returns (uint256) {
         if (deadline <= block.timestamp) revert InvalidDeadline();
+        if (options.length < 2) revert InsufficientOptions();
 
-        Bet storage bet = bets[betCount];
+        uint256 betId = betCount;
+        Bet storage bet = bets[betId];
+        
         bet.title = title;
         bet.status = BetStatus.OPEN;
         bet.deadline = deadline;
 
-        emit BetCreated(betCount, title, deadline);
+        // Add all options in the same transaction
+        for (uint256 i = 0; i < options.length; i++) {
+            betOptions[betId].push(
+                Option({ name: options[i], totalAmount: 0 })
+            );
+            emit OptionAdded(betId, i, options[i]);
+        }
+
+        emit BetCreated(betId, title, deadline);
         betCount++;
+
+        return betId;
     }
 
+    /// @notice Creates a bet without options (legacy/advanced use)
+    /// @dev Options must be added separately via addOption()
+    /// @dev NOT recommended for standard frontend flows - use createBetWithOptions instead
+    function createBet(string calldata title, uint256 deadline) external returns (uint256) {
+        if (deadline <= block.timestamp) revert InvalidDeadline();
+
+        uint256 betId = betCount;
+        Bet storage bet = bets[betId];
+        
+        bet.title = title;
+        bet.status = BetStatus.OPEN;
+        bet.deadline = deadline;
+
+        emit BetCreated(betId, title, deadline);
+        betCount++;
+
+        return betId;
+    }
+
+    /// @notice Adds a single option to an existing bet
+    /// @dev Only allowed while bet is OPEN and options are not locked
+    /// @dev Primarily for DAO/admin use or dynamic bet extension
     function addOption(
         uint256 betId,
         string calldata name
