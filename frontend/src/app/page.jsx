@@ -11,7 +11,8 @@
  * Data flow:
  * - Fetch total number of bets from `betCount`
  * - Retrieve summarized bet info via `getBetInfo`
- * - Derive logical status client-side (OPEN / CLOSED)
+ * - Consume logical status directly from the contract
+ *   (deadline-sovereign, no client-side derivation)
  * - Render the last 3 bets in reverse order (most recent first)
  */
 

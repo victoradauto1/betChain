@@ -1,11 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import {
-  BetChain,
-  ReentrancyAttacker,
-  PlaceBetReentrancyAttacker,
-  RejectEther,
-  GasGuzzler,
+  BetChain
 } from "../typechain-types";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
@@ -362,7 +358,6 @@ describe("BetChain", function () {
 
       await time.increaseTo(deadline + 1);
 
-      // Should auto-close when settling
       await expect(betChain.settleBet(0, 0))
         .to.emit(betChain, "BetClosed")
         .withArgs(0);
@@ -384,7 +379,7 @@ describe("BetChain", function () {
         .withArgs(0, 0);
 
       const bet = await betChain.bets(0);
-      expect(bet.status).to.equal(2); // SETTLED
+      expect(bet.status).to.equal(2);
       expect(bet.winningOption).to.equal(0);
     });
 
@@ -423,7 +418,7 @@ describe("BetChain", function () {
       await betChain.closeBet(0);
 
       await expect(
-        betChain.settleBet(0, 1) // Option B has no bets
+        betChain.settleBet(0, 1) 
       ).to.be.revertedWithCustomError(betChain, "InvalidOption");
     });
 
@@ -648,7 +643,6 @@ describe("BetChain", function () {
       await betChain.closeBet(0);
       await betChain.settleBet(0, 0);
 
-      // Should revert because contract rejects ETH
       await expect(rejecter.withdraw(0)).to.be.revertedWith("Transfer failed");
     });
 
@@ -666,7 +660,6 @@ describe("BetChain", function () {
   await betChain.closeBet(0);
   await betChain.settleBet(0, 0);
 
-  // ✅ Should NOT revert — call forwards gas safely
   await expect(guzzler.withdraw(0)).to.not.be.reverted;
 });
   });
@@ -817,7 +810,6 @@ describe("BetChain", function () {
       await betChain.closeBet(0);
       await betChain.settleBet(0, 0);
 
-      // Each gets their money back (no profit since no losers)
       expect(await betChain.calculatePayout(0, user1.address)).to.equal(ethers.parseEther("1"));
       expect(await betChain.calculatePayout(0, user2.address)).to.equal(ethers.parseEther("1"));
       expect(await betChain.calculatePayout(0, user3.address)).to.equal(ethers.parseEther("1"));
@@ -969,7 +961,6 @@ describe("BetChain", function () {
 
       await betChain.connect(user3).withdraw(0);
 
-      // user2 bet on losing option - cannot withdraw
       await expect(
         betChain.connect(user2).withdraw(0)
       ).to.be.revertedWithCustomError(betChain, "NothingToWithdraw");

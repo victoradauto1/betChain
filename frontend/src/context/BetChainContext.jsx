@@ -6,15 +6,32 @@
  * Handles wallet connection, network validation and
  * authenticated WRITE access to the BetChain smart contract.
  *
- * This context is intentionally scoped to WRITE operations only.
- * It manages signer-based interactions, transaction execution
- * and custom error propagation from the contract.
+ * This context is primarily scoped to WRITE operations, exposing
+ * a semantic transaction layer for creating, betting, finalizing
+ * and withdrawing from bets.
  *
- * Read-only blockchain access MUST NOT depend on this context,
- * allowing public data consumption without a connected wallet.
+ * In addition to WRITE actions, it exposes a limited set of
+ * READ-ONLY helper methods that are:
+ * - Account-aware (e.g. payouts, user positions)
+ * - UI-decision oriented (e.g. canClose, canSettle, isOpen)
+ *
+ * These reads are intentionally included to support correct
+ * frontend behavior around permissionless flows and
+ * deadline-sovereign logic enforced by the contract.
+ *
+ * Generic, public, read-only blockchain access MUST NOT depend
+ * on this context, allowing data consumption without a
+ * connected wallet or signer.
  */
 
-import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
 import { BrowserProvider, Contract } from "ethers";
 import BetChainABI from "../abi/BetChain.json";
 
@@ -30,10 +47,14 @@ export function BetChainProvider({ children }) {
   const [contract, setContract] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
 
-  const isReady = useMemo(() => {
-    return Boolean(provider && signer && contract && account);
-  }, [provider, signer, contract, account]);
+  const isReady = useMemo(
+    () => Boolean(provider && signer && contract && account),
+    [provider, signer, contract, account]
+  );
 
+  /* ------------------------------------------------
+   * Wallet connection
+   * ------------------------------------------------ */
   const connectWallet = useCallback(async () => {
     if (!window.ethereum || isConnecting) return;
 
@@ -77,9 +98,9 @@ export function BetChainProvider({ children }) {
     sessionStorage.setItem("walletDisconnected", "true");
   }, []);
 
-  /** ------------------------------------------------
-   * Safe transaction executor (custom errors aware)
-   * ------------------------------------------------*/
+  /* ------------------------------------------------
+   * Safe TX executor (custom errors aware)
+   * ------------------------------------------------ */
   const executeTx = useCallback(async (txFn) => {
     try {
       const tx = await txFn();
@@ -92,36 +113,66 @@ export function BetChainProvider({ children }) {
     }
   }, []);
 
-  /** ------------------------------------------------
-   * WRITE METHODS (semantic API)
-   * ------------------------------------------------*/
+  /* ------------------------------------------------
+   * WRITE + SEMANTIC READ API
+   * ------------------------------------------------ */
   const actions = useMemo(() => {
     if (!contract) return null;
 
     return {
+      /* ---------- Creation ---------- */
+      createBetWithOptions: (title, deadline, options) =>
+        executeTx(() =>
+          contract.createBetWithOptions(title, deadline, options)
+        ),
+
       createBet: (title, deadline) =>
         executeTx(() => contract.createBet(title, deadline)),
 
       addOption: (betId, name) =>
         executeTx(() => contract.addOption(betId, name)),
 
+      /* ---------- Betting ---------- */
       placeBet: (betId, optionId, value) =>
         executeTx(() =>
           contract.placeBet(betId, optionId, { value })
         ),
 
+      /* ---------- Finalization ---------- */
       closeBet: (betId) =>
         executeTx(() => contract.closeBet(betId)),
 
       settleBet: (betId, winningOption) =>
-        executeTx(() => contract.settleBet(betId, winningOption)),
+        executeTx(() =>
+          contract.settleBet(betId, winningOption)
+        ),
 
       withdraw: (betId) =>
         executeTx(() => contract.withdraw(betId)),
-    };
-  }, [contract, executeTx]);
 
-  /** Wallet listeners */
+      /* ---------- Semantic Reads ---------- */
+      getBetInfo: (betId) => contract.getBetInfo(betId),
+      getOptions: (betId) => contract.getOptions(betId),
+
+      canClose: (betId) => contract.canClose(betId),
+      canSettle: (betId) => contract.canSettle(betId),
+      isOpen: (betId) => contract.isOpen(betId),
+      isExpired: (betId) => contract.isExpired(betId),
+
+      calculatePayout: (betId) =>
+        contract.calculatePayout(betId, account),
+
+      getUserBet: (betId, optionId) =>
+        contract.getUserBet(betId, optionId, account),
+
+      getUserTotalBet: (betId) =>
+        contract.getUserTotalBet(betId, account),
+    };
+  }, [contract, executeTx, account]);
+
+  /* ------------------------------------------------
+   * Wallet listeners
+   * ------------------------------------------------ */
   useEffect(() => {
     if (!window.ethereum) return;
 
@@ -136,8 +187,14 @@ export function BetChainProvider({ children }) {
     window.ethereum.on("chainChanged", handleChainChanged);
 
     return () => {
-      window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
-      window.ethereum.removeListener("chainChanged", handleChainChanged);
+      window.ethereum.removeListener(
+        "accountsChanged",
+        handleAccountsChanged
+      );
+      window.ethereum.removeListener(
+        "chainChanged",
+        handleChainChanged
+      );
     };
   }, [disconnectWallet]);
 
