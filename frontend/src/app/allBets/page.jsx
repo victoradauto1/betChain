@@ -2,17 +2,15 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { ethers } from "ethers";
-import contractABI from "../../abi/BetChain.json";
-import { getReadOnlyProvider } from "../../utils/web3Provider"; // ✅ ADDED
-
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+import { getReadOnlyContract } from "../../utils/web3Provider";
+import { getBetMetadata } from "../../services/metadataService";
 
 /**
- * AllBets - Full list of bets
+ * AllBets
  *
- * Uses getAllBets(), which returns 9 parallel arrays.
- * More efficient than fetching bets one by one (single contract call).
+ * Displays a comprehensive list of all bets with metadata.
+ * Uses read-only contract access for public viewing without wallet connection.
+ * Fetches both on-chain data and off-chain metadata for rich display.
  */
 export default function AllBets() {
   const [bets, setBets] = useState([]);
@@ -20,10 +18,9 @@ export default function AllBets() {
 
   const fetchAllBets = async () => {
     try {
-      const provider = await getReadOnlyProvider(); 
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, provider);
+      const contract = await getReadOnlyContract();
 
-      const totalBets = await contract.getTotalBets();
+      const totalBets = await contract.betCount();
       const total = Number(totalBets);
 
       if (total === 0) {
@@ -32,37 +29,68 @@ export default function AllBets() {
         return;
       }
 
-      const result = await contract.getAllBets(0, total);
-      const [
-        ids,
-        creators,
-        titles,
-        imageUrls,
-        pools,
-        actives,
-        finals,
-        optionsCounts,
-        deadlines,
-      ] = result;
+      const betPromises = [];
+      for (let i = 0; i < total; i++) {
+        betPromises.push(fetchSingleBet(contract, i));
+      }
 
-      const formatted = ids.map((id, index) => ({
-        id: Number(id),
-        title: titles[index],
-        imageUrl: imageUrls[index],
-        creator: creators[index],
-        totalPool: ethers.formatEther(pools[index]),
-        isActive: actives[index],
-        isFinalized: finals[index],
-        optionsCount: Number(optionsCounts[index]),
-        deadline: Number(deadlines[index]),
-      }));
-
-      setBets(formatted);
+      const allBets = await Promise.all(betPromises);
+      setBets(allBets.filter(Boolean));
     } catch (err) {
       console.error("Error fetching bets:", err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchSingleBet = async (contract, betId) => {
+    try {
+      const betInfo = await contract.getBetInfo(betId);
+      const options = await contract.getOptions(betId);
+
+      const metadata = await getBetMetadata(betId.toString());
+
+      const totalPool = Number(betInfo.totalPool.toString()) / 1e18;
+      const deadline = Number(betInfo.deadline);
+      const now = Math.floor(Date.now() / 1000);
+      const isExpired = now >= deadline;
+      const status = Number(betInfo.logicalStatus);
+
+      const isOpen = status === 0 && !isExpired;
+      const isClosed = status === 1 || (status === 0 && isExpired);
+      const isSettled = status === 2;
+
+      return {
+        id: betId,
+        title: metadata?.title || betInfo.title,
+        imageUrl: metadata?.imageUrl || "/images/default-bet.png",
+        totalPool: totalPool.toFixed(4),
+        optionsCount: options.length,
+        deadline,
+        isOpen,
+        isClosed,
+        isSettled,
+        status: isSettled ? "SETTLED" : isClosed ? "CLOSED" : "OPEN",
+      };
+    } catch (err) {
+      console.error(`Error fetching bet ${betId}:`, err);
+      return null;
+    }
+  };
+
+  const formatDeadline = (timestamp) => {
+    const date = new Date(timestamp * 1000);
+    const now = new Date();
+    const diff = date - now;
+
+    if (diff < 0) return "Expired";
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h`;
+    return "< 1h";
   };
 
   useEffect(() => {
@@ -71,7 +99,7 @@ export default function AllBets() {
 
   return (
     <div className="w-full px-6 py-10">
-      <h1 className="text-4xl font-bold text-center mb-10">All Bets</h1>
+      <h1 className="text-4xl font-bold text-center mb-10 text-white">All Bets</h1>
 
       {loading ? (
         <div className="flex flex-col items-center">
@@ -84,22 +112,30 @@ export default function AllBets() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {bets.map((bet) => (
             <Link key={bet.id} href={`/betDetails/${bet.id}`}>
-              <div className="bg-gray-800 border border-gray-700 p-4 rounded-xl cursor-pointer hover:scale-[1.02] hover:border-indigo-400 transition">
+              <div className="bg-gray-800 border border-gray-700 p-4 rounded-xl hover:scale-[1.02] hover:border-indigo-400 transition cursor-pointer">
                 <img
                   src={bet.imageUrl}
-                  alt="Bet Image"
+                  alt={bet.title}
                   className="w-full h-48 object-cover rounded-lg mb-4"
                 />
-                <h2 className="text-xl font-semibold mb-2">{bet.title}</h2>
-                <p className="text-sm text-gray-400">
-                  Creator: {bet.creator.slice(0, 6)}...{bet.creator.slice(-4)}
-                </p>
+                <h2 className="text-xl font-semibold mb-2 text-white">{bet.title}</h2>
+                
+                <div className="space-y-1 text-sm text-gray-400">
+                  <p>Pool: {bet.totalPool} ETH</p>
+                  <p>Options: {bet.optionsCount}</p>
+                  <p>Ends: {formatDeadline(bet.deadline)}</p>
+                </div>
+
                 <p
-                  className={`mt-2 text-sm font-semibold ${
-                    bet.isActive ? "text-green-400" : "text-red-400"
+                  className={`mt-3 text-sm font-semibold ${
+                    bet.isOpen
+                      ? "text-green-400"
+                      : bet.isSettled
+                      ? "text-blue-400"
+                      : "text-orange-400"
                   }`}
                 >
-                  {bet.isActive ? "ACTIVE" : "FINISHED"}
+                  {bet.status}
                 </p>
               </div>
             </Link>

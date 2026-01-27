@@ -1,33 +1,44 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { useBetChain } from "../../context/BetChainContext";
-import { saveBetMetadata } from "../../services/metadataService";
-
 /**
  * CreateBet
  *
- * FINAL VERSION
- *
  * Responsibilities:
  * - Collect bet metadata (title, description, image URL)
- * - Validate deadline and options
- * - Create bet on-chain (ONLY title + deadline)
- * - Register options on-chain
+ * - Enforce mandatory deadline (core business rule)
+ * - Create bet on-chain with all options in a single transaction (OPTIMIZED)
  * - Persist off-chain metadata indexed by betId
+ *
+ * Performance Optimization:
+ * - Uses createBetWithOptions() to create bet + register all options atomically
+ * - Reduces gas costs from ~5 transactions to just 1 transaction
+ * - Dramatically improves UX by eliminating multiple wallet confirmations
  */
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, useRef } from "react";
+import { useBetChain } from "../../context/BetChainContext";
+import { saveBetMetadata } from "../../services/metadataService";
+
+import ConfirmModal from "../../components/ConfirmModal";
+import ProcessingOverlay from "../../components/ProcessingOverlay";
+
 export default function CreateBet() {
   const router = useRouter();
-  const { actions, isReady } = useBetChain();
+  const { actions, isReady, connectWallet } = useBetChain();
+  const isExecutingRef = useRef(false); // Previne execuções duplicadas
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [deadline, setDeadline] = useState("");
   const [options, setOptions] = useState(["", ""]);
+
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [walletMissing, setWalletMissing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleOptionChange = (index, value) => {
     const updated = [...options];
@@ -36,7 +47,9 @@ export default function CreateBet() {
   };
 
   const addOption = () => {
-    if (options.length < 10) setOptions([...options, ""]);
+    if (options.length < 10) {
+      setOptions([...options, ""]);
+    }
   };
 
   const removeOption = (index) => {
@@ -45,63 +58,160 @@ export default function CreateBet() {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const validateDeadline = () => {
+    if (!deadline) {
+      throw new Error("Deadline is mandatory.");
+    }
+
+    const timestamp = Math.floor(new Date(deadline).getTime() / 1000);
+    const now = Math.floor(Date.now() / 1000);
+
+    if (isNaN(timestamp) || timestamp <= now) {
+      throw new Error("Deadline must be a valid future date.");
+    }
+
+    return timestamp;
+  };
+
+  const resetForm = () => {
+    setTitle("");
+    setDescription("");
+    setImageUrl("");
+    setDeadline("");
+    setOptions(["", ""]);
+    setErrorMessage("");
+  };
+
+  /**
+   * 1️⃣ PRIMEIRA FASE: valida tudo e abre diálogo
+   */
+  const handleSubmit = (e) => {
     e.preventDefault();
+    setErrorMessage("");
 
-    if (!isReady || !actions) {
-      alert("Wallet not connected.");
+    if (!title.trim()) {
+      setErrorMessage("Title is required.");
       return;
     }
 
-    const filteredOptions = options.filter((o) => o.trim() !== "");
+    const filteredOptions = options.map(o => o.trim()).filter(Boolean);
     if (filteredOptions.length < 2) {
-      alert("You must provide at least 2 options.");
+      setErrorMessage("At least 2 options are required.");
       return;
     }
-
-    let deadlineTimestamp = 0;
-    if (deadline) {
-      const ts = Math.floor(new Date(deadline).getTime() / 1000);
-      if (ts <= Math.floor(Date.now() / 1000)) {
-        alert("Deadline must be a future date.");
-        return;
-      }
-      deadlineTimestamp = ts;
-    }
-
-    setIsProcessing(true);
 
     try {
-      // 1️⃣ Create bet ON-CHAIN (title + deadline only)
-      const receipt = await actions.createBet(title, deadlineTimestamp);
+      validateDeadline();
+    } catch (err) {
+      setErrorMessage(err.message);
+      return;
+    }
 
-      // 2️⃣ Extract betId from emitted event
-      const event = receipt.logs?.[0];
+    // Se a carteira não estiver conectada, mostra modal pedindo conexão
+    if (!isReady || !actions) {
+      setWalletMissing(true);
+      setShowConfirmModal(true);
+      return;
+    }
+
+    // Se tudo OK, mostra modal de confirmação
+    setWalletMissing(false);
+    setShowConfirmModal(true);
+  };
+
+  /**
+   * 2️⃣ SEGUNDA FASE: execução real (on-chain) OU conexão da carteira
+   */
+  const executeCreateBet = async () => {
+    // Previne execuções duplicadas
+    if (isExecutingRef.current) {
+      console.log("Already executing, ignoring duplicate call");
+      return;
+    }
+
+    // Se a carteira está faltando, tenta conectar
+    if (walletMissing) {
+      setShowConfirmModal(false);
+      setIsProcessing(true);
+      
+      try {
+        await connectWallet();
+        // Após conectar, reabre o modal de confirmação
+        setWalletMissing(false);
+        setShowConfirmModal(true);
+      } catch (err) {
+        console.error("Failed to connect wallet:", err);
+        setErrorMessage("Failed to connect wallet. Please try again.");
+      } finally {
+        setIsProcessing(false);
+      }
+      
+      return;
+    }
+
+    // Validação final antes de executar
+    let deadlineTimestamp;
+    try {
+      deadlineTimestamp = validateDeadline();
+    } catch (err) {
+      setErrorMessage(err.message);
+      setShowConfirmModal(false);
+      return;
+    }
+
+    const filteredOptions = options.map(o => o.trim()).filter(Boolean);
+
+    isExecutingRef.current = true;
+    setIsProcessing(true);
+    setShowConfirmModal(false);
+
+    try {
+      console.log("Creating bet on-chain with all options in a single transaction...");
+      
+      // 🚀 OTIMIZAÇÃO: Uma única transação cria a bet E todas as opções
+      const receipt = await actions.createBetWithOptions(
+        title,
+        deadlineTimestamp,
+        filteredOptions
+      );
+
+      // Extrai o betId do evento BetCreated
+      const event = receipt.logs?.find(
+        log => log.fragment?.name === "BetCreated"
+      );
+      
       const betId = event?.args?.betId;
 
       if (betId === undefined || betId === null) {
-        throw new Error("Failed to retrieve betId from transaction.");
+        throw new Error("Unable to retrieve betId from transaction.");
       }
 
-      // 3️⃣ Register options ON-CHAIN
-      for (const option of filteredOptions) {
-        await actions.addOption(betId, option);
-      }
+      console.log(`Bet created successfully with ID: ${betId}`);
+      console.log(`All ${filteredOptions.length} options registered on-chain`);
 
-      // 4️⃣ Persist OFF-CHAIN metadata (mock IPFS / Fleek)
-      await saveBetMetadata(betId, {
+      // Salva metadados off-chain
+      console.log("Saving metadata off-chain...");
+      
+      await saveBetMetadata({
+        betId: betId.toString(),
         title,
         description,
         imageUrl,
       });
 
-      alert("Bet created successfully! 🎉");
+      console.log("✅ Bet creation complete!");
+      
+      // Limpa o formulário antes de redirecionar
+      resetForm();
+      
       router.push("/allBets");
     } catch (err) {
       console.error("CreateBet error:", err);
-      alert(err.message || "Transaction failed.");
+      setErrorMessage(err.message || "Failed to create bet. Please try again.");
+      setShowConfirmModal(false);
     } finally {
       setIsProcessing(false);
+      isExecutingRef.current = false;
     }
   };
 
@@ -114,69 +224,69 @@ export default function CreateBet() {
 
       <div className="relative z-10 w-full max-w-2xl px-4 py-10">
         <div className="w-full flex justify-between items-center mb-4 px-2">
-          <h2 className="text-2xl font-semibold">Create a Bet</h2>
-          <Link
-            href="/"
-            className="text-gray-300 hover:text-white text-sm font-medium hover:scale-110 transition-transform"
-          >
+          <h2 className="text-2xl font-semibold">Create Bet</h2>
+          <Link href="/" className="text-gray-300 hover:text-white text-sm font-medium">
             Return
           </Link>
         </div>
 
         <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800 p-8 rounded-2xl shadow-xl">
+          {errorMessage && (
+            <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+              <p className="text-sm text-red-200">{errorMessage}</p>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6">
-            <Input
-              label="Bet Title"
-              placeholder="e.g. Champions League Winner"
-              value={title}
-              onChange={setTitle}
-              required
-            />
+            <Input label="Bet Title" value={title} onChange={setTitle} required />
 
             <Input
-              label="Image URL (optional)"
-              placeholder="https://example.com/banner.jpg"
+              label="Image URL"
               value={imageUrl}
               onChange={setImageUrl}
+              placeholder="https://example.com/banner.jpg"
             />
 
             <Input
-              label="Description (optional)"
-              placeholder="Describe the bet context..."
+              label="Description"
               value={description}
               onChange={setDescription}
+              placeholder="Describe the bet context"
             />
 
             <Input
-              label="Deadline (optional)"
+              label="Deadline"
               type="datetime-local"
               value={deadline}
               onChange={setDeadline}
-              helpText="Leave empty for no deadline. Must be a future date."
+              required
+              helpText="Mandatory. Defines when the bet is closed."
             />
 
             <div>
               <label className="block text-white font-semibold mb-2">
                 Bet Options (2–10)
               </label>
+
               <div className="space-y-3">
                 {options.map((opt, index) => (
                   <div key={index} className="flex gap-3 items-center">
                     <input
                       type="text"
-                      className="flex-1 p-3 rounded-lg bg-zinc-800 border border-zinc-700 text-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="flex-1 p-3 rounded-lg bg-zinc-800 border border-zinc-700 text-white"
                       placeholder={`Option ${index + 1}`}
                       value={opt}
                       onChange={(e) => handleOptionChange(index, e.target.value)}
                       required
                     />
+
                     {options.length > 2 && index > 1 && (
                       <button
                         type="button"
                         onClick={() => removeOption(index)}
-                        className="p-2 rounded-lg hover:bg-white/10 transition"
+                        className="p-2 rounded-lg hover:bg-white/10"
                       >
-                        🗑️
+                        Remove
                       </button>
                     )}
                   </div>
@@ -187,9 +297,9 @@ export default function CreateBet() {
                 <button
                   type="button"
                   onClick={addOption}
-                  className="mt-3 px-4 py-2 rounded-xl text-sm font-semibold border border-white text-white hover:bg-gray-600 transition"
+                  className="mt-3 px-4 py-2 rounded-xl text-sm font-semibold border border-white hover:bg-gray-600"
                 >
-                  + Add Option
+                  Add option
                 </button>
               )}
             </div>
@@ -197,7 +307,7 @@ export default function CreateBet() {
             <button
               type="submit"
               disabled={isProcessing}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg shadow transition"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 font-bold py-3 rounded-lg transition-colors"
             >
               {isProcessing ? "Processing..." : "Create Bet"}
             </button>
@@ -205,28 +315,55 @@ export default function CreateBet() {
         </div>
       </div>
 
-      {isProcessing && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 px-4">
-          <div className="bg-linear-to-br from-gray-900 to-gray-800 border-2 border-indigo-500 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
-            <h3 className="text-2xl font-bold text-white mb-3">
-              Processing Transaction
-            </h3>
-            <p className="text-gray-300">
-              Please confirm the transaction in MetaMask...
+      {showConfirmModal && (
+        <ConfirmModal
+          title={walletMissing ? "Wallet not connected" : "Confirm Bet Creation"}
+          onCancel={() => {
+            setShowConfirmModal(false);
+            setWalletMissing(false);
+          }}
+          onConfirm={executeCreateBet}
+          confirmText={walletMissing ? "Connect Wallet" : "Confirm & Create"}
+          disabled={isProcessing}
+        >
+          {walletMissing ? (
+            <p className="text-sm text-gray-300">
+              You must connect your wallet before creating a bet.
             </p>
-          </div>
-        </div>
+          ) : (
+            <div className="text-sm text-gray-300 space-y-2">
+              <p><strong>Title:</strong> {title}</p>
+              <p><strong>Options:</strong> {options.filter(o => o.trim()).length}</p>
+              <p><strong>Deadline:</strong> {deadline}</p>
+              <p className="text-xs text-gray-400 mt-3">
+                ⚡ All options will be registered in a single transaction
+              </p>
+            </div>
+          )}
+        </ConfirmModal>
       )}
+
+      {isProcessing && <ProcessingOverlay />}
     </div>
   );
 }
 
-function Input({ label, value, onChange, placeholder, type = "text", required = false, helpText }) {
+function Input({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+  required = false,
+  helpText,
+}) {
   return (
     <div>
-      <label className="block text-white font-semibold mb-1">
-        {label}{required && <span className="text-red-400 ml-1">*</span>}
+      <label className="block font-semibold mb-1">
+        {label}
+        {required && <span className="text-red-400 ml-1">*</span>}
       </label>
+
       <input
         type={type}
         placeholder={placeholder}
@@ -235,7 +372,10 @@ function Input({ label, value, onChange, placeholder, type = "text", required = 
         onChange={(e) => onChange(e.target.value)}
         required={required}
       />
-      {helpText && <p className="text-xs text-gray-400 mt-1">{helpText}</p>}
+
+      {helpText && (
+        <p className="text-xs text-gray-400 mt-1">{helpText}</p>
+      )}
     </div>
   );
 }
