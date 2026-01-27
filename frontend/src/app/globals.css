@@ -1,51 +1,30 @@
 @import "tailwindcss";
 
-.btn-primary{
-    border-color: navy;
-    background-color: #3b3b6d;
-}
-
-.btn-primary:hover{
-    border-color: navy;
-    background-color: navy;
-};
-
-.message{
-    color: gray;
-    margin-left: 10px;
-    margin-top: 10px;
-}
-
-@keyframes glowPulse {
-  0% {
-    text-shadow: 0 0 10px #00ff91aa, 0 0 20px #00ff91aa;
+@layer components {
+  .btn-primary {
+    @apply border border-blue-900 bg-[#3b3b6d] text-white transition-colors;
   }
-  50% {
-    text-shadow: 0 0 20px #00ff91dd, 0 0 40px #00ff91dd;
-  }
-  100% {
-    text-shadow: 0 0 10px #00ff91aa, 0 0 20px #00ff91aa;
-  }
-}
 
-.glow-title {
-  animation: glowPulse 2.5s infinite ease-in-out;
-}
-
-/* Shine (efeito luz passando) */
-@keyframes shineSlide {
-  0% {
-    background-position: -200%;
+  .btn-primary:hover {
+    @apply bg-blue-900;
   }
-  100% {
-    background-position: 200%;
-  }
-}
 
-.shine-title {
-  background: linear-gradient(90deg, #ffffff 0%, #00ff91 50%, #ffffff 100%);
-  background-size: 200%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: shineSlide 3s ease-in-out infinite;
+  button {
+    cursor: pointer;
+  }
+  .message {
+    @apply text-gray-500 ml-2.5 mt-2.5;
+  }
+
+  .glow-title {
+    animation: glowPulse 2.5s infinite ease-in-out;
+  }
+
+  .shine-title {
+    background: linear-gradient(90deg, #ffffff 0%, #00ff91 50%, #ffffff 100%);
+    background-size: 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shineSlide 3s ease-in-out infinite;
+  }
 }

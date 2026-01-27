@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { getReadOnlyContract } from "../../utils/web3Provider";
 import { getBetMetadata } from "../../services/metadataService";
+import PageHeaderActions from "../../components/PageHeaderActions";
 
 /**
  * AllBets
@@ -98,50 +99,60 @@ export default function AllBets() {
   }, []);
 
   return (
-    <div className="w-full px-6 py-10">
-      <h1 className="text-4xl font-bold text-center mb-10 text-white">All Bets</h1>
+    <div className="min-h-screen text-white flex flex-col items-center px-6 py-10 relative overflow-hidden">
+      <div className="absolute inset-0 bg-gray-950">
+        <div className="absolute inset-0 bg-[url('/images/stadiumBet.png')] bg-cover bg-center opacity-20 mix-blend-lighten grayscale"></div>
+        <div className="absolute inset-0 bg-linear-to-b from-black via-black/80 to-transparent"></div>
+      </div>
 
-      {loading ? (
-        <div className="flex flex-col items-center">
-          <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-center text-gray-300">Loading bets...</p>
-        </div>
-      ) : bets.length === 0 ? (
-        <p className="text-center text-gray-400">No bets found.</p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {bets.map((bet) => (
-            <Link key={bet.id} href={`/betDetails/${bet.id}`}>
-              <div className="bg-gray-800 border border-gray-700 p-4 rounded-xl hover:scale-[1.02] hover:border-indigo-400 transition cursor-pointer">
-                <img
-                  src={bet.imageUrl}
-                  alt={bet.title}
-                  className="w-full h-48 object-cover rounded-lg mb-4"
-                />
-                <h2 className="text-xl font-semibold mb-2 text-white">{bet.title}</h2>
-                
-                <div className="space-y-1 text-sm text-gray-400">
-                  <p>Pool: {bet.totalPool} ETH</p>
-                  <p>Options: {bet.optionsCount}</p>
-                  <p>Ends: {formatDeadline(bet.deadline)}</p>
+      <div className="relative z-10 w-full max-w-7xl">
+        <PageHeaderActions title="All Bets" action="return" />
+
+        {loading ? (
+          <div className="flex flex-col items-center mt-10">
+            <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="text-center text-gray-300">Loading bets...</p>
+          </div>
+        ) : bets.length === 0 ? (
+          <p className="text-center text-gray-400 mt-10">No bets found.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-6">
+            {bets.map((bet) => (
+              <Link key={bet.id} href={`/betDetails/${bet.id}`}>
+                <div className="bg-gray-800 border border-gray-700 p-4 rounded-xl hover:scale-[1.02] hover:border-indigo-400 transition cursor-pointer">
+                  <img
+                    src={bet.imageUrl}
+                    alt={bet.title}
+                    className="w-full h-48 object-cover rounded-lg mb-4"
+                    onError={(e) => {
+                      e.target.src = "/images/default-bet.png";
+                    }}
+                  />
+                  <h2 className="text-xl font-semibold mb-2 text-white">{bet.title}</h2>
+                  
+                  <div className="space-y-1 text-sm text-gray-400">
+                    <p>Pool: {bet.totalPool} ETH</p>
+                    <p>Options: {bet.optionsCount}</p>
+                    <p>Ends: {formatDeadline(bet.deadline)}</p>
+                  </div>
+
+                  <p
+                    className={`mt-3 text-sm font-semibold ${
+                      bet.isOpen
+                        ? "text-green-400"
+                        : bet.isSettled
+                        ? "text-blue-400"
+                        : "text-orange-400"
+                    }`}
+                  >
+                    {bet.status}
+                  </p>
                 </div>
-
-                <p
-                  className={`mt-3 text-sm font-semibold ${
-                    bet.isOpen
-                      ? "text-green-400"
-                      : bet.isSettled
-                      ? "text-blue-400"
-                      : "text-orange-400"
-                  }`}
-                >
-                  {bet.status}
-                </p>
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -23,6 +23,7 @@ import { useEffect, useState } from "react";
 
 import PageHeaderActions from "../components/PageHeaderActions";
 import { getReadOnlyProvider } from "../utils/web3Provider";
+import { getBetMetadata } from "../services/metadataService";
 import BetChainABI from "../abi/BetChain.json";
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
@@ -63,32 +64,48 @@ export default function Home() {
         }
 
         const results = await Promise.all(
-          ids.map((id) => contract.getBetInfo(id))
+          ids.map(async (id) => {
+            const betInfo = await contract.getBetInfo(id);
+            const options = await contract.getOptions(id);
+            const metadata = await getBetMetadata(id.toString());
+
+            const [
+              title,
+              storedStatus,
+              logicalStatus,
+              deadline,
+              winningOption,
+              totalPool,
+              optionsLocked,
+              expired,
+            ] = betInfo;
+
+            const deadlineNum = Number(deadline);
+            const now = Math.floor(Date.now() / 1000);
+            const isExpired = now >= deadlineNum;
+            const status = Number(logicalStatus);
+
+            const isOpen = status === 0 && !isExpired;
+            const isClosed = status === 1 || (status === 0 && isExpired);
+            const isSettled = status === 2;
+
+            return {
+              id,
+              title: metadata?.title || title,
+              imageUrl: metadata?.imageUrl || "/images/default-bet.png",
+              totalPool,
+              logicalStatus: status,
+              deadline: deadlineNum,
+              optionsCount: options.length,
+              isOpen,
+              isClosed,
+              isSettled,
+            };
+          })
         );
 
-        const parsed = results.map((bet, index) => {
-          const [
-            title,
-            storedStatus,
-            logicalStatus,
-            deadline,
-            winningOption,
-            totalPool,
-            optionsLocked,
-            expired,
-          ] = bet;
-
-          return {
-            id: ids[index],
-            title,
-            totalPool,
-            logicalStatus,
-            deadline: Number(deadline),
-          };
-        });
-
         if (isMounted) {
-          setBets(parsed);
+          setBets(results);
         }
       } catch (error) {
         console.error("Error loading bets:", error);
@@ -104,6 +121,21 @@ export default function Home() {
       isMounted = false;
     };
   }, []);
+
+  const formatDeadline = (timestamp) => {
+    const date = new Date(timestamp * 1000);
+    const now = new Date();
+    const diff = date - now;
+
+    if (diff < 0) return "Expired";
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h`;
+    return "< 1h";
+  };
 
   return (
     <div className="min-h-screen text-white flex flex-col items-center px-6 py-10 relative overflow-hidden">
@@ -128,22 +160,39 @@ export default function Home() {
               {bets.map((bet) => (
                 <div
                   key={bet.id}
-                  className="bg-gray-900/70 backdrop-blur-sm p-5 rounded-2xl shadow-md hover:shadow-indigo-600/30 transition cursor-pointer"
+                  className="bg-gray-800 border border-gray-700 p-4 rounded-xl hover:scale-[1.02] hover:border-indigo-400 transition cursor-pointer"
                   onClick={() => router.push(`/betDetails/${bet.id}`)}
                 >
-                  <h3 className="text-lg font-semibold mb-2">
+                  <img
+                    src={bet.imageUrl}
+                    alt={bet.title}
+                    className="w-full h-48 object-cover rounded-lg mb-4"
+                    onError={(e) => {
+                      e.target.src = "/images/default-bet.png";
+                    }}
+                  />
+                  
+                  <h3 className="text-xl font-semibold mb-2 text-white">
                     {bet.title}
                   </h3>
 
-                  <div className="flex justify-between items-center mt-4 text-sm text-gray-300">
-                    <span>
-                      {bet.logicalStatus === 0 ? "🟢 Active" : "🔴 Closed"}
-                    </span>
-
-                    <span className="text-indigo-400">
-                      Pool: {ethers.formatEther(bet.totalPool)} ETH
-                    </span>
+                  <div className="space-y-1 text-sm text-gray-400">
+                    <p>Pool: {ethers.formatEther(bet.totalPool)} ETH</p>
+                    <p>Options: {bet.optionsCount}</p>
+                    <p>Ends: {formatDeadline(bet.deadline)}</p>
                   </div>
+
+                  <p
+                    className={`mt-3 text-sm font-semibold ${
+                      bet.isOpen
+                        ? "text-green-400"
+                        : bet.isSettled
+                        ? "text-blue-400"
+                        : "text-orange-400"
+                    }`}
+                  >
+                    {bet.isSettled ? "SETTLED" : bet.isClosed ? "CLOSED" : "OPEN"}
+                  </p>
                 </div>
               ))}
             </div>
@@ -151,7 +200,7 @@ export default function Home() {
             <div className="mt-8">
               <Link
                 href="/allBets"
-                className="px-6 py-2 rounded-xl text-sm font-semibold border border-indigo-400 text-indigo-400 hover:bg-indigo-600 hover:text-white transition"
+                className="px-6 py-2 rounded-xl text-sm font-semibold border border-indigo-400 text-indigo-400 hover:bg-indigo-600 hover:text-white transition cursor-pointer"
               >
                 View All
               </Link>
