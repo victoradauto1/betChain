@@ -5,14 +5,13 @@
  *
  * Responsibilities:
  * - Collect bet metadata (title, description, image URL)
- * - Enforce mandatory deadline (core business rule)
- * - Create bet on-chain with all options in a single transaction (OPTIMIZED)
+ * - Enforce a mandatory deadline (core business rule)
+ * - Create a bet on-chain with all options in a single transaction
  * - Persist off-chain metadata indexed by betId
  *
- * Performance Optimization:
- * - Uses createBetWithOptions() to create bet + register all options atomically
- * - Reduces gas costs from ~5 transactions to just 1 transaction
- * - Dramatically improves UX by eliminating multiple wallet confirmations
+ * Performance:
+ * - Uses createBetWithOptions() to create the bet and register all options atomically
+ * - Reduces gas usage and wallet confirmations to a single transaction
  */
 
 import Link from "next/link";
@@ -27,7 +26,7 @@ import ProcessingOverlay from "../../components/ProcessingOverlay";
 export default function CreateBet() {
   const router = useRouter();
   const { actions, isReady, connectWallet } = useBetChain();
-  const isExecutingRef = useRef(false); // Previne execuções duplicadas
+  const isExecutingRef = useRef(false);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -82,9 +81,6 @@ export default function CreateBet() {
     setErrorMessage("");
   };
 
-  /**
-   * 1️⃣ PRIMEIRA FASE: valida tudo e abre diálogo
-   */
   const handleSubmit = (e) => {
     e.preventDefault();
     setErrorMessage("");
@@ -96,7 +92,7 @@ export default function CreateBet() {
 
     const filteredOptions = options.map(o => o.trim()).filter(Boolean);
     if (filteredOptions.length < 2) {
-      setErrorMessage("At least 2 options are required.");
+      setErrorMessage("At least two options are required.");
       return;
     }
 
@@ -107,49 +103,36 @@ export default function CreateBet() {
       return;
     }
 
-    // Se a carteira não estiver conectada, mostra modal pedindo conexão
     if (!isReady || !actions) {
       setWalletMissing(true);
       setShowConfirmModal(true);
       return;
     }
 
-    // Se tudo OK, mostra modal de confirmação
     setWalletMissing(false);
     setShowConfirmModal(true);
   };
 
-  /**
-   * 2️⃣ SEGUNDA FASE: execução real (on-chain) OU conexão da carteira
-   */
   const executeCreateBet = async () => {
-    // Previne execuções duplicadas
-    if (isExecutingRef.current) {
-      console.log("Already executing, ignoring duplicate call");
-      return;
-    }
+    if (isExecutingRef.current) return;
 
-    // Se a carteira está faltando, tenta conectar
     if (walletMissing) {
       setShowConfirmModal(false);
       setIsProcessing(true);
-      
+
       try {
         await connectWallet();
-        // Após conectar, reabre o modal de confirmação
         setWalletMissing(false);
         setShowConfirmModal(true);
-      } catch (err) {
-        console.error("Failed to connect wallet:", err);
+      } catch {
         setErrorMessage("Failed to connect wallet. Please try again.");
       } finally {
         setIsProcessing(false);
       }
-      
+
       return;
     }
 
-    // Validação final antes de executar
     let deadlineTimestamp;
     try {
       deadlineTimestamp = validateDeadline();
@@ -166,32 +149,22 @@ export default function CreateBet() {
     setShowConfirmModal(false);
 
     try {
-      console.log("Creating bet on-chain with all options in a single transaction...");
-      
-      // 🚀 OTIMIZAÇÃO: Uma única transação cria a bet E todas as opções
       const receipt = await actions.createBetWithOptions(
         title,
         deadlineTimestamp,
         filteredOptions
       );
 
-      // Extrai o betId do evento BetCreated
       const event = receipt.logs?.find(
         log => log.fragment?.name === "BetCreated"
       );
-      
+
       const betId = event?.args?.betId;
 
       if (betId === undefined || betId === null) {
-        throw new Error("Unable to retrieve betId from transaction.");
+        throw new Error("Failed to retrieve betId from transaction.");
       }
 
-      console.log(`Bet created successfully with ID: ${betId}`);
-      console.log(`All ${filteredOptions.length} options registered on-chain`);
-
-      // Salva metadados off-chain
-      console.log("Saving metadata off-chain...");
-      
       await saveBetMetadata({
         betId: betId.toString(),
         title,
@@ -199,15 +172,10 @@ export default function CreateBet() {
         imageUrl,
       });
 
-      console.log("✅ Bet creation complete!");
-      
-      // Limpa o formulário antes de redirecionar
       resetForm();
-      
       router.push("/allBets");
     } catch (err) {
-      console.error("CreateBet error:", err);
-      setErrorMessage(err.message || "Failed to create bet. Please try again.");
+      setErrorMessage(err.message || "Failed to create bet.");
       setShowConfirmModal(false);
     } finally {
       setIsProcessing(false);
@@ -260,11 +228,11 @@ export default function CreateBet() {
               value={deadline}
               onChange={setDeadline}
               required
-              helpText="Mandatory. Defines when the bet is closed."
+              helpText="Defines when the bet is closed."
             />
 
             <div>
-              <label className="block text-white font-semibold mb-2">
+              <label className="block font-semibold mb-2">
                 Bet Options (2–10)
               </label>
 
@@ -335,9 +303,6 @@ export default function CreateBet() {
               <p><strong>Title:</strong> {title}</p>
               <p><strong>Options:</strong> {options.filter(o => o.trim()).length}</p>
               <p><strong>Deadline:</strong> {deadline}</p>
-              <p className="text-xs text-gray-400 mt-3">
-                ⚡ All options will be registered in a single transaction
-              </p>
             </div>
           )}
         </ConfirmModal>
