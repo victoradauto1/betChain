@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
 import { getReadOnlyContract } from "../../utils/web3Provider";
 import { getBetMetadata } from "../../services/metadataService";
 import PageHeaderActions from "../../components/PageHeaderActions";
+import BetCard from "../../components/BetCard";
 
 /**
  * AllBets
@@ -79,21 +79,6 @@ export default function AllBets() {
     }
   };
 
-  const formatDeadline = (timestamp) => {
-    const date = new Date(timestamp * 1000);
-    const now = new Date();
-    const diff = date - now;
-
-    if (diff < 0) return "Expired";
-
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-
-    if (days > 0) return `${days}d ${hours}h`;
-    if (hours > 0) return `${hours}h`;
-    return "< 1h";
-  };
-
   useEffect(() => {
     fetchAllBets();
   }, []);
@@ -118,37 +103,7 @@ export default function AllBets() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-6">
             {bets.map((bet) => (
-              <Link key={bet.id} href={`/betDetails/${bet.id}`}>
-                <div className="bg-gray-800 border border-gray-700 p-4 rounded-xl hover:scale-[1.02] hover:border-indigo-400 transition cursor-pointer">
-                  <img
-                    src={bet.imageUrl}
-                    alt={bet.title}
-                    className="w-full h-48 object-cover rounded-lg mb-4"
-                    onError={(e) => {
-                      e.target.src = "/images/default-bet.png";
-                    }}
-                  />
-                  <h2 className="text-xl font-semibold mb-2 text-white">{bet.title}</h2>
-                  
-                  <div className="space-y-1 text-sm text-gray-400">
-                    <p>Pool: {bet.totalPool} ETH</p>
-                    <p>Options: {bet.optionsCount}</p>
-                    <p>Ends: {formatDeadline(bet.deadline)}</p>
-                  </div>
-
-                  <p
-                    className={`mt-3 text-sm font-semibold ${
-                      bet.isOpen
-                        ? "text-green-400"
-                        : bet.isSettled
-                        ? "text-blue-400"
-                        : "text-orange-400"
-                    }`}
-                  >
-                    {bet.status}
-                  </p>
-                </div>
-              </Link>
+              <BetCard key={bet.id} bet={bet} />
             ))}
           </div>
         )}

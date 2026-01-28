@@ -22,6 +22,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import PageHeaderActions from "../components/PageHeaderActions";
+import BetCard from "../components/BetCard";
 import { getReadOnlyProvider } from "../utils/web3Provider";
 import { getBetMetadata } from "../services/metadataService";
 import BetChainABI from "../abi/BetChain.json";
@@ -122,21 +123,6 @@ export default function Home() {
     };
   }, []);
 
-  const formatDeadline = (timestamp) => {
-    const date = new Date(timestamp * 1000);
-    const now = new Date();
-    const diff = date - now;
-
-    if (diff < 0) return "Expired";
-
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-
-    if (days > 0) return `${days}d ${hours}h`;
-    if (hours > 0) return `${hours}h`;
-    return "< 1h";
-  };
-
   return (
     <div className="min-h-screen text-white flex flex-col items-center px-6 py-10 relative overflow-hidden">
       <div className="absolute inset-0 bg-gray-950">
@@ -158,42 +144,7 @@ export default function Home() {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
               {bets.map((bet) => (
-                <div
-                  key={bet.id}
-                  className="bg-gray-800 border border-gray-700 p-4 rounded-xl hover:scale-[1.02] hover:border-indigo-400 transition cursor-pointer"
-                  onClick={() => router.push(`/betDetails/${bet.id}`)}
-                >
-                  <img
-                    src={bet.imageUrl}
-                    alt={bet.title}
-                    className="w-full h-48 object-cover rounded-lg mb-4"
-                    onError={(e) => {
-                      e.target.src = "/images/default-bet.png";
-                    }}
-                  />
-                  
-                  <h3 className="text-xl font-semibold mb-2 text-white">
-                    {bet.title}
-                  </h3>
-
-                  <div className="space-y-1 text-sm text-gray-400">
-                    <p>Pool: {ethers.formatEther(bet.totalPool)} ETH</p>
-                    <p>Options: {bet.optionsCount}</p>
-                    <p>Ends: {formatDeadline(bet.deadline)}</p>
-                  </div>
-
-                  <p
-                    className={`mt-3 text-sm font-semibold ${
-                      bet.isOpen
-                        ? "text-green-400"
-                        : bet.isSettled
-                        ? "text-blue-400"
-                        : "text-orange-400"
-                    }`}
-                  >
-                    {bet.isSettled ? "SETTLED" : bet.isClosed ? "CLOSED" : "OPEN"}
-                  </p>
-                </div>
+                <BetCard key={bet.id} bet={bet} />
               ))}
             </div>
 
