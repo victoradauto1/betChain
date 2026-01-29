@@ -12,14 +12,6 @@ const STORAGE_KEY = "betchain:metadata";
 
 /**
  * Save bet metadata off-chain
- *
- * @param {Object} metadata
- * @param {string|number} metadata.betId - Bet ID
- * @param {string} metadata.title - Bet title
- * @param {string} metadata.description - Bet description (optional)
- * @param {string} metadata.imageUrl - Image URL (optional)
- *
- * @returns {Promise<string>} metadataURI - Simulated IPFS/Fleek URI
  */
 export async function saveBetMetadata(metadata) {
   if (!metadata?.betId) {
@@ -29,8 +21,10 @@ export async function saveBetMetadata(metadata) {
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
 
-    stored[metadata.betId.toString()] = {
-      betId: metadata.betId.toString(),
+    const betId = metadata.betId.toString();
+
+    stored[betId] = {
+      betId,
       title: metadata.title || "",
       description: metadata.description || "",
       imageUrl: metadata.imageUrl || "",
@@ -39,9 +33,10 @@ export async function saveBetMetadata(metadata) {
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
 
-    console.log(`[MetadataService] Saved metadata for bet #${metadata.betId}`);
+    console.log(`[MetadataService] Saved metadata for bet #${betId}`);
 
-    return `local://betchain/metadata/${metadata.betId}`;
+    // Simulated IPFS / Fleek URI
+    return `local://betchain/metadata/${betId}`;
   } catch (err) {
     console.error("[MetadataService] Save failed:", err);
     throw new Error(`Failed to save metadata: ${err.message}`);
@@ -50,20 +45,11 @@ export async function saveBetMetadata(metadata) {
 
 /**
  * Retrieve metadata for a specific bet
- *
- * @param {string|number} betId - Bet ID to fetch
- * @returns {Promise<Object|null>} Metadata object or null if not found
  */
 export async function getBetMetadata(betId) {
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-    const metadata = stored[betId?.toString()] || null;
-
-    if (metadata) {
-      console.log(`[MetadataService] Retrieved metadata for bet #${betId}`);
-    }
-
-    return metadata;
+    return stored[betId?.toString()] || null;
   } catch (err) {
     console.error("[MetadataService] Retrieval failed:", err);
     return null;
@@ -73,12 +59,14 @@ export async function getBetMetadata(betId) {
 /**
  * Retrieve all stored bet metadata
  *
- * @returns {Promise<Array<Object>>} Array of all metadata objects
+ * ALWAYS returns an array (UI-safe)
  */
 export async function getAllBetMetadata() {
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-    return Object.values(stored);
+
+    return Object.values(stored)
+      .sort((a, b) => b.createdAt - a.createdAt); // newest first
   } catch (err) {
     console.error("[MetadataService] Get all failed:", err);
     return [];
@@ -87,22 +75,19 @@ export async function getAllBetMetadata() {
 
 /**
  * Delete metadata for a specific bet (admin/testing use)
- *
- * @param {string|number} betId - Bet ID to delete
- * @returns {Promise<boolean>} Success status
  */
 export async function deleteBetMetadata(betId) {
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-    
-    if (stored[betId?.toString()]) {
-      delete stored[betId.toString()];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
-      console.log(`[MetadataService] Deleted metadata for bet #${betId}`);
-      return true;
-    }
+    const key = betId?.toString();
 
-    return false;
+    if (!stored[key]) return false;
+
+    delete stored[key];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+
+    console.log(`[MetadataService] Deleted metadata for bet #${key}`);
+    return true;
   } catch (err) {
     console.error("[MetadataService] Delete failed:", err);
     return false;
@@ -111,8 +96,6 @@ export async function deleteBetMetadata(betId) {
 
 /**
  * Clear all metadata (testing/reset use)
- *
- * @returns {Promise<boolean>} Success status
  */
 export async function clearAllMetadata() {
   try {
