@@ -2,16 +2,13 @@
  * metadataService
  *
  * Off-chain metadata persistence layer.
- * Currently uses localStorage as mock for development.
- * Ready to be replaced with Fleek/IPFS without refactoring UI.
+ * Uses backend API to pin metadata to IPFS (Pinata).
  *
- * IMPORTANT: This interface must remain stable for easy migration.
+ * IMPORTANT: This interface MUST remain stable.
  */
 
-const STORAGE_KEY = "betchain:metadata";
-
 /**
- * Save bet metadata off-chain
+ * Save bet metadata off-chain (IPFS via backend)
  */
 export async function saveBetMetadata(metadata) {
   if (!metadata?.betId) {
@@ -19,27 +16,33 @@ export async function saveBetMetadata(metadata) {
   }
 
   try {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+    const response = await fetch("/api/metadata", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        betId: metadata.betId.toString(),
+        title: metadata.title || "",
+        description: metadata.description || "",
+        imageUrl: metadata.imageUrl || "",
+      }),
+    });
 
-    const betId = metadata.betId.toString();
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err?.message || "Metadata upload failed");
+    }
 
-    stored[betId] = {
-      betId,
-      title: metadata.title || "",
-      description: metadata.description || "",
-      imageUrl: metadata.imageUrl || "",
-      createdAt: Date.now(),
-    };
+    const { uri } = await response.json();
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+    console.log(`[MetadataService] Metadata pinned: ${uri}`);
 
-    console.log(`[MetadataService] Saved metadata for bet #${betId}`);
-
-    // Simulated IPFS / Fleek URI
-    return `local://betchain/metadata/${betId}`;
+    // ipfs://CID
+    return uri;
   } catch (err) {
     console.error("[MetadataService] Save failed:", err);
-    throw new Error(`Failed to save metadata: ${err.message}`);
+    throw err;
   }
 }
 
@@ -48,8 +51,9 @@ export async function saveBetMetadata(metadata) {
  */
 export async function getBetMetadata(betId) {
   try {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-    return stored[betId?.toString()] || null;
+    const res = await fetch(`/api/metadata?betId=${betId}`);
+    if (!res.ok) return null;
+    return await res.json();
   } catch (err) {
     console.error("[MetadataService] Retrieval failed:", err);
     return null;
@@ -58,15 +62,12 @@ export async function getBetMetadata(betId) {
 
 /**
  * Retrieve all stored bet metadata
- *
- * ALWAYS returns an array (UI-safe)
  */
 export async function getAllBetMetadata() {
   try {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-
-    return Object.values(stored)
-      .sort((a, b) => b.createdAt - a.createdAt); // newest first
+    const res = await fetch("/api/metadata/all");
+    if (!res.ok) return [];
+    return await res.json();
   } catch (err) {
     console.error("[MetadataService] Get all failed:", err);
     return [];
@@ -74,20 +75,14 @@ export async function getAllBetMetadata() {
 }
 
 /**
- * Delete metadata for a specific bet (admin/testing use)
+ * Delete metadata (admin/testing only)
  */
 export async function deleteBetMetadata(betId) {
   try {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-    const key = betId?.toString();
-
-    if (!stored[key]) return false;
-
-    delete stored[key];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
-
-    console.log(`[MetadataService] Deleted metadata for bet #${key}`);
-    return true;
+    const res = await fetch(`/api/metadata?betId=${betId}`, {
+      method: "DELETE",
+    });
+    return res.ok;
   } catch (err) {
     console.error("[MetadataService] Delete failed:", err);
     return false;
@@ -99,9 +94,10 @@ export async function deleteBetMetadata(betId) {
  */
 export async function clearAllMetadata() {
   try {
-    localStorage.removeItem(STORAGE_KEY);
-    console.log("[MetadataService] Cleared all metadata");
-    return true;
+    const res = await fetch("/api/metadata/clear", {
+      method: "POST",
+    });
+    return res.ok;
   } catch (err) {
     console.error("[MetadataService] Clear failed:", err);
     return false;
