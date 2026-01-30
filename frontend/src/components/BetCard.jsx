@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 
+const FALLBACK_IMAGE = "/icon.png";
+
 /**
  * BetCard
  *
@@ -64,6 +66,11 @@ export default function BetCard({ bet, showDeadline = true, compact = false }) {
 
   const statusInfo = getStatusInfo();
 
+  const imageSrc =
+    typeof bet.imageUrl === "string" && bet.imageUrl.trim() !== ""
+      ? bet.imageUrl
+      : FALLBACK_IMAGE;
+
   return (
     <Link href={`/betDetails/${bet.id}`}>
       <div
@@ -75,14 +82,15 @@ export default function BetCard({ bet, showDeadline = true, compact = false }) {
         `}
       >
         <img
-          src={bet.imageUrl || "/images/default-bet.png"}
+          src={imageSrc}
           alt={bet.title}
           className={`
             w-full object-cover rounded-lg mb-3
             ${compact ? "h-32" : "h-48"}
           `}
           onError={(e) => {
-            e.currentTarget.src = "/images/default-bet.png";
+            if (e.currentTarget.src.endsWith(FALLBACK_IMAGE)) return;
+            e.currentTarget.src = FALLBACK_IMAGE;
           }}
         />
 
@@ -118,7 +126,6 @@ export default function BetCard({ bet, showDeadline = true, compact = false }) {
               <p className="flex items-center gap-2">
                 <span className="font-medium">Ends:</span>
 
-                {/* Pulsing deadline number */}
                 <span className="relative inline-flex items-center">
                   {deadlineInfo.pulse && (
                     <span
