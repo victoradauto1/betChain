@@ -64,7 +64,7 @@ export default function AllBets() {
       return {
         id: betId,
         title: metadata?.title || betInfo.title,
-        imageUrl: metadata?.imageUrl || "/images/default-bet.png",
+        image: metadata?.image || null,
         totalPool: totalPool.toFixed(4),
         optionsCount: options.length,
         deadline,

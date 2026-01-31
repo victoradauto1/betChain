@@ -8,6 +8,7 @@ import ProcessingOverlay from "../../../components/ProcessingOverlay";
 import { useBetChain } from "../../../context/BetChainContext";
 import { getBetMetadata } from "../../../services/metadataService";
 import { getReadOnlyContract } from "../../../utils/web3Provider";
+import { resolveImageUrl } from "../../../utils/resolveImageUrl";
 
 /**
  * BetDetails
@@ -61,7 +62,7 @@ export default function BetDetails({ params }) {
           id: betId,
           title: metadata?.title || betInfo.title,
           description: metadata?.description || "",
-          imageUrl: metadata?.imageUrl || "",
+          image: metadata?.image || null,
           totalPool: totalPool / 1e18,
           status: Number(betInfo.logicalStatus),
           deadline,
@@ -193,6 +194,7 @@ export default function BetDetails({ params }) {
   const totalAmount = bet.options.reduce((acc, o) => acc + o.amount, 0);
   const statusInfo = getStatusLabel(bet.status, bet.isExpired);
   const isOpen = bet.status === 0 && !bet.isExpired;
+  const resolvedImage = resolveImageUrl(bet.image);
 
   return (
     <div className="min-h-screen text-white flex flex-col items-center px-6 py-10 relative overflow-hidden">
@@ -290,12 +292,15 @@ export default function BetDetails({ params }) {
               </div>
             </div>
 
-            {bet.imageUrl && (
+            {bet.image && (
               <div className="flex justify-center">
                 <img
-                  src={bet.imageUrl}
+                  src={resolvedImage}
                   alt={bet.title}
                   className="w-48 h-48 object-cover rounded-xl shadow-lg hover:scale-105 transition-transform"
+                  onError={(e) => {
+                    e.currentTarget.src = "/icon.png";
+                  }}
                 />
               </div>
             )}

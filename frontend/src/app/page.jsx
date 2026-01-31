@@ -93,7 +93,7 @@ export default function Home() {
             return {
               id,
               title: metadata?.title || title,
-              imageUrl: metadata?.imageUrl || "/images/default-bet.png",
+              image: metadata?.image || null,
               totalPool,
               logicalStatus: status,
               deadline: deadlineNum,

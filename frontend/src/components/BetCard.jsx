@@ -1,19 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { resolveImageUrl } from "../utils/resolveImageUrl";
 
-const FALLBACK_IMAGE = "/icon.png";
-
-/**
- * BetCard
- *
- * Reusable card component for displaying bet information.
- * Used in both Home and AllBets pages for consistent styling.
- *
- * Deadline UX:
- * - When less than 24h remaining, the DEADLINE NUMBER pulses
- *   using a ping animation behind the text (no dot).
- */
 export default function BetCard({ bet, showDeadline = true, compact = false }) {
   const getDeadlineInfo = (timestamp) => {
     const date = new Date(timestamp * 1000);
@@ -21,11 +10,7 @@ export default function BetCard({ bet, showDeadline = true, compact = false }) {
     const diff = date - now;
 
     if (diff < 0) {
-      return {
-        text: "Expired",
-        color: "text-gray-500",
-        pulse: false,
-      };
+      return { text: "Expired", color: "text-gray-500", pulse: false };
     }
 
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -66,10 +51,8 @@ export default function BetCard({ bet, showDeadline = true, compact = false }) {
 
   const statusInfo = getStatusInfo();
 
-  const imageSrc =
-    typeof bet.imageUrl === "string" && bet.imageUrl.trim() !== ""
-      ? bet.imageUrl
-      : FALLBACK_IMAGE;
+  // IMPORTANT: metadata field is "image", not "imageUrl"
+  const imageSrc = resolveImageUrl(bet.image);
 
   return (
     <Link href={`/betDetails/${bet.id}`}>
@@ -89,8 +72,7 @@ export default function BetCard({ bet, showDeadline = true, compact = false }) {
             ${compact ? "h-32" : "h-48"}
           `}
           onError={(e) => {
-            if (e.currentTarget.src.endsWith(FALLBACK_IMAGE)) return;
-            e.currentTarget.src = FALLBACK_IMAGE;
+            e.currentTarget.src = "/icon.png";
           }}
         />
 
