@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { resolveImageUrl } from "../utils/resolveImageUrl";
+import resolveImageUrl from "../utils/resolveImageUrl";
 
 export default function BetCard({ bet, showDeadline = true, compact = false }) {
   const getDeadlineInfo = (timestamp) => {
@@ -50,8 +50,6 @@ export default function BetCard({ bet, showDeadline = true, compact = false }) {
   };
 
   const statusInfo = getStatusInfo();
-
-  // IMPORTANT: metadata field is "image", not "imageUrl"
   const imageSrc = resolveImageUrl(bet.image);
 
   return (
@@ -72,6 +70,7 @@ export default function BetCard({ bet, showDeadline = true, compact = false }) {
             ${compact ? "h-32" : "h-48"}
           `}
           onError={(e) => {
+            if (e.currentTarget.src.endsWith("/icon.png")) return;
             e.currentTarget.src = "/icon.png";
           }}
         />
@@ -96,8 +95,7 @@ export default function BetCard({ bet, showDeadline = true, compact = false }) {
 
           {bet.optionsCount && (
             <p>
-              <span className="font-medium">Options:</span>{" "}
-              {bet.optionsCount}
+              <span className="font-medium">Options:</span> {bet.optionsCount}
             </p>
           )}
 
@@ -139,3 +137,4 @@ export default function BetCard({ bet, showDeadline = true, compact = false }) {
     </Link>
   );
 }
+
