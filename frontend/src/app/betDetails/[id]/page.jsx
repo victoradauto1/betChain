@@ -8,7 +8,7 @@ import ProcessingOverlay from "../../../components/ProcessingOverlay";
 import { useBetChain } from "../../../context/BetChainContext";
 import { getBetMetadata } from "../../../services/metadataService";
 import { getReadOnlyContract } from "../../../utils/web3Provider";
-import { resolveImageUrl } from "../../../utils/resolveImageUrl";
+import  resolveImageUrl  from "../../../utils/resolveImageUrl";
 
 /**
  * BetDetails
