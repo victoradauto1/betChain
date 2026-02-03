@@ -58,35 +58,43 @@ export default function BetCard({ bet, showDeadline = true, compact = false }) {
         className={`
           bg-gray-800 border border-gray-700 rounded-xl
           hover:scale-[1.02] hover:border-indigo-400
-          transition-all cursor-pointer
-          ${compact ? "p-3" : "p-4"}
+          transition-all cursor-pointer flex flex-col
+          ${compact ? "p-2.5 h-[280px]" : "p-4 h-[420px]"}
         `}
       >
-        <img
-          src={imageSrc}
-          alt={bet.title}
-          className={`
-            w-full object-cover rounded-lg mb-3
-            ${compact ? "h-32" : "h-48"}
-          `}
-          onError={(e) => {
-            if (e.currentTarget.src.endsWith("/icon.png")) return;
-            e.currentTarget.src = "/icon.png";
-          }}
-        />
+        {/* IMAGE: 60% size when compact (192px -> 115px) */}
+        <div className={`${compact ? "h-[115px] mb-2" : "h-48 mb-3"} shrink-0`}>
+          <img
+            src={imageSrc}
+            alt={bet.title}
+            className="w-full h-full object-cover rounded-lg"
+            onError={(e) => {
+              if (e.currentTarget.src.endsWith("/icon.png")) return;
+              e.currentTarget.src = "/icon.png";
+            }}
+          />
+        </div>
 
+        {/* TITLE: proportionally smaller when compact */}
         <h2
           className={`
-            font-semibold mb-2 text-white line-clamp-2
-            ${compact ? "text-lg" : "text-xl"}
+            font-semibold text-white overflow-hidden shrink-0
+            ${compact ? "text-base mb-1.5 leading-5 h-10" : "text-xl mb-2 leading-7 h-14"}
           `}
+          style={{
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+          }}
+          title={bet.title}
         >
           {bet.title}
         </h2>
 
+        {/* CONTENT: proportional spacing and font size */}
         <div
-          className={`space-y-1 ${
-            compact ? "text-xs" : "text-sm"
+          className={`${
+            compact ? "space-y-0.5 text-xs" : "space-y-1 text-sm"
           } text-gray-400`}
         >
           <p>
@@ -130,11 +138,11 @@ export default function BetCard({ bet, showDeadline = true, compact = false }) {
           })()}
         </div>
 
-        <p className={`mt-3 text-sm font-semibold ${statusInfo.color}`}>
+        {/* STATUS: proportionally smaller when compact */}
+        <p className={`shrink-0 ${compact ? "mt-2 text-xs" : "mt-3 text-sm"} font-semibold ${statusInfo.color}`}>
           {statusInfo.text}
         </p>
       </div>
     </Link>
   );
 }
-

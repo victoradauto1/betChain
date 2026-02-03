@@ -1,24 +1,7 @@
 "use client";
 
-/**
- * Home
- *
- * Displays the 3 most recent bets created on the BetChain contract.
- *
- * This page is READ-ONLY and does NOT depend on wallet connection
- * or BetChainContext.
- *
- * Data flow:
- * - Fetch total number of bets from `betCount`
- * - Retrieve summarized bet info via `getBetInfo`
- * - Consume logical status directly from the contract
- *   (deadline-sovereign, no client-side derivation)
- * - Render the last 3 bets in reverse order (most recent first)
- */
-
 import { ethers } from "ethers";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import PageHeaderActions from "../components/PageHeaderActions";
@@ -36,7 +19,6 @@ if (!CONTRACT_ADDRESS) {
 export default function Home() {
   const [bets, setBets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
     let isMounted = true;
@@ -51,11 +33,7 @@ export default function Home() {
         );
 
         const total = Number(await contract.betCount());
-
-        if (total === 0) {
-          if (isMounted) setBets([]);
-          return;
-        }
+        if (total === 0) return;
 
         const fromId = Math.max(0, total - 3);
         const ids = [];
@@ -70,76 +48,50 @@ export default function Home() {
             const options = await contract.getOptions(id);
             const metadata = await getBetMetadata(id.toString());
 
-            const [
-              title,
-              storedStatus,
-              logicalStatus,
-              deadline,
-              winningOption,
-              totalPool,
-              optionsLocked,
-              expired,
-            ] = betInfo;
-
+            const [, , logicalStatus, deadline] = betInfo;
             const deadlineNum = Number(deadline);
             const now = Math.floor(Date.now() / 1000);
             const isExpired = now >= deadlineNum;
             const status = Number(logicalStatus);
 
-            const isOpen = status === 0 && !isExpired;
-            const isClosed = status === 1 || (status === 0 && isExpired);
-            const isSettled = status === 2;
-
             return {
               id,
-              title: metadata?.title || title,
+              title: metadata?.title || betInfo[0],
               image: metadata?.image || null,
-              totalPool,
-              logicalStatus: status,
+              totalPool: betInfo[5],
               deadline: deadlineNum,
               optionsCount: options.length,
-              isOpen,
-              isClosed,
-              isSettled,
+              isOpen: status === 0 && !isExpired,
+              isClosed: status === 1 || (status === 0 && isExpired),
+              isSettled: status === 2,
             };
           })
         );
 
-        if (isMounted) {
-          setBets(results);
-        }
-      } catch (error) {
-        console.error("Error loading bets:", error);
-        if (isMounted) setBets([]);
+        if (isMounted) setBets(results);
+      } catch (e) {
+        console.error(e);
       } finally {
         if (isMounted) setLoading(false);
       }
     }
 
     loadLastBets();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => (isMounted = false);
   }, []);
 
   return (
     <div className="min-h-screen text-white flex flex-col items-center px-6 py-10 relative overflow-hidden">
       <div className="absolute inset-0 bg-gray-950">
-        <div className="absolute inset-0 bg-[url('/images/stadiumBet.png')] bg-cover bg-center opacity-20 mix-blend-lighten grayscale"></div>
-        <div className="absolute inset-0 bg-linear-to-b from-black via-black/80 to-transparent"></div>
+        <div className="absolute inset-0 bg-[url('/images/stadiumBet.png')] bg-cover bg-center opacity-20 mix-blend-lighten grayscale" />
+        <div className="absolute inset-0 bg-linear-to-b from-black via-black/80 to-transparent" />
       </div>
 
       <div className="relative z-10 w-full flex flex-col items-center">
         <PageHeaderActions title="Last Bets" isHome />
 
         {loading ? (
-          <div className="flex flex-col items-center mt-10">
-            <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="text-gray-400">Loading bets...</p>
-          </div>
-        ) : bets.length === 0 ? (
-          <p className="text-gray-400 mt-10">No bets found yet.</p>
+          <div className="mt-10">Loading bets...</div>
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
@@ -151,7 +103,7 @@ export default function Home() {
             <div className="mt-8">
               <Link
                 href="/allBets"
-                className="px-6 py-2 rounded-xl text-sm font-semibold border border-indigo-400 text-indigo-400 hover:bg-indigo-600 hover:text-white transition cursor-pointer"
+                className="px-6 py-2 rounded-xl text-sm font-semibold border border-indigo-400 text-indigo-400 hover:bg-indigo-600 hover:text-white transition"
               >
                 View All
               </Link>
