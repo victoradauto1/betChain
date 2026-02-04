@@ -1,8 +1,8 @@
 # BetChain — On-chain Betting Protocol (Portfolio Project)
 
-This repository contains **BetChain**, an on-chain betting protocol implemented in Solidity, designed as a **professional portfolio project** to demonstrate smart contract architecture, state management, and security-conscious design in Ethereum-based systems.
+This repository contains **BetChain**, an on-chain betting protocol implemented in Solidity, designed as a **portfolio-grade protocol project**.
 
-The goal of this project is **not commercial deployment**, but to showcase the ability to design **production-style smart contracts** with clear state transitions, minimal trust assumptions, and robust edge-case handling.
+The objective of this contract is **not commercial deployment**, but to demonstrate professional smart contract architecture, lifecycle modeling, and security-conscious design.
 
 ---
 
@@ -12,175 +12,103 @@ The goal of this project is **not commercial deployment**, but to showcase the a
 Bets are governed by time, not by users.
 
 - The `deadline` is the single source of truth for bet closure.
-- Bets automatically transition from `OPEN` → `CLOSED` once the deadline is reached.
-- Any function interaction triggers a **lazy state synchronization**, ensuring correctness without relying on a privileged operator.
+- Bets transition from `OPEN` to `CLOSED` once the deadline is reached.
+- No privileged operator is required to advance the lifecycle.
 
 ---
 
 ### 2. Lazy State Synchronization
-The contract avoids continuous state updates.
+State transitions are evaluated only when required.
 
-- Stored state is synchronized **only when needed**.
-- Logical state (derived from `block.timestamp`) is computed on demand.
-- This prevents state drift and reduces unnecessary storage writes.
+- Stored state is synchronized on interaction.
+- Logical state is derived from `block.timestamp`.
+- View functions always reflect the effective lifecycle state.
 
 ---
 
 ### 3. Logical vs Stored State
 The contract explicitly separates:
 
-- **Stored state** (persisted in storage)
-- **Logical state** (derived at runtime)
+- **Stored state**: minimal persisted data
+- **Logical state**: inferred runtime truth
 
-View functions always return the **logical truth**, even if storage has not yet been synchronized.
+This prevents stale reads and incorrect UI assumptions.
 
 ---
 
 ### 4. Permissionless Lifecycle
-All lifecycle actions are permissionless:
+All lifecycle actions are permissionless at the protocol level:
 
-- Anyone can close a bet after its deadline.
-- Anyone can settle a closed bet by providing the winning option.
-- Users can independently withdraw their winnings.
+- Anyone may close a bet after its deadline.
+- Anyone may submit settlement data.
+- Any participant may withdraw winnings.
 
-The protocol does **not depend on a centralized operator** to remain functional.
+This guarantees liveness and prevents frozen funds.
 
 ---
 
 ### 5. Defensive Design
-The contract follows a defensive programming model:
+The protocol follows a defensive programming model:
 
-- Explicit state validation on every external call
+- Explicit state validation
 - Custom errors for invalid transitions
-- Idempotent behavior for lifecycle actions
-- Reentrancy protection on withdrawals
-- Effects-before-interactions pattern
+- Idempotent lifecycle actions
+- Reentrancy protection
+- Effects-before-interactions discipline
 
 ---
 
 ## Protocol Lifecycle
 
-1. **Bet Creation**
-   - A bet is created with a title and a future deadline.
-
-2. **Option Registration**
-   - Options can be added while the bet is open.
-   - Options are permanently locked after the first bet is placed.
-
-3. **Betting Phase**
-   - Users place ETH on a chosen option.
-   - A minimum of two options is required.
-
-4. **Automatic Closure**
-   - Once the deadline passes, the bet is logically closed.
-
-5. **Settlement**
-   - A winning option is selected.
-   - The bet transitions to `SETTLED`.
-
-6. **Withdrawals**
-   - Winners withdraw their proportional share of the total pool.
+1. Bet creation
+2. Option registration
+3. Betting phase
+4. Deadline-based closure
+5. Settlement
+6. Withdrawals
 
 ---
 
-## Trust Model
+## Settlement & Trust Model
 
-This project intentionally **does not implement result verification mechanisms** such as:
+This protocol intentionally does **not implement result verification mechanisms**, such as:
 
 - Oracles
+- DAO voting
 - Commit–reveal schemes
 - Multisig settlement
-- External consensus proofs
 
-The winning option is assumed to be provided by an external trusted process.
+Settlement is treated as a **protocol capability**, not a business rule.
 
-This decision is **deliberate** and aligned with the project’s scope:
-
-> The focus is on **on-chain mechanics, lifecycle correctness, and architectural maturity**, not oracle engineering.
+The contract accepts settlement input but does not attempt to define truth.
 
 ---
 
-## Design Decisions (Explicit)
+## Explicit Non-Goals
 
-### Why lazy state synchronization?
-To avoid:
-- Continuous storage writes
-- Reliance on cron-like automation
-- Centralized keepers
+The following concerns are intentionally out of scope:
 
-State correctness is guaranteed **at the moment of interaction**.
-
----
-
-### Why logical vs stored state separation?
-To ensure:
-- Accurate read-only views
-- No false "open" states after deadlines
-- Safer front-end and integration behavior
-
-This pattern mirrors production DeFi protocols.
+- Oracle engineering
+- Dispute resolution
+- Governance mechanisms
+- Protocol fees
+- Treasury management
 
 ---
 
-### Why permissionless settlement?
-To eliminate:
-- Single points of failure
-- Operator dependence
-- Frozen funds scenarios
+## Why This Contract Exists
 
-Any user can move the protocol forward.
-
----
-
-### Why lock options on first bet?
-To prevent:
-- Post-bet manipulation
-- Information asymmetry
-- Late option injection
-
-This ensures fairness once economic activity begins.
-
----
-
-## Production Extensions (Out of Scope by Design)
-
-If this were a production system, the following could be added:
-
-- Oracle-based result validation (e.g. Chainlink)
-- Commit–reveal settlement for subjective outcomes
-- Multisig or DAO-controlled settlement authority
-- Dispute and challenge windows
-- Protocol fees and treasury management
-
-These features were intentionally excluded to keep the project **focused, readable, and audit-friendly**.
-
----
-
-## Tech Stack
-
-- Solidity `^0.8.28`
-- Hardhat
-- OpenZeppelin (`ReentrancyGuard`)
-- Ethers.js
-- Mocha / Solidity tests (optional)
-
----
-
-## Why This Project Matters
-
-This contract demonstrates:
+This project demonstrates:
 
 - Time-based authority
-- Clear lifecycle enforcement
+- Deterministic lifecycle enforcement
 - Minimal trust assumptions
-- Gas-conscious design
-- Production-level defensive coding
-
-It is intentionally scoped to highlight **engineering maturity**, not feature quantity.
+- Robust state modeling
+- Production-oriented Solidity patterns
 
 ---
 
 ## Disclaimer
 
-This project is provided **for educational and portfolio purposes only**.  
-It has **not been audited** and should not be used in production environments.
+This project is provided for educational and portfolio purposes only.  
+It has not been audited and must not be used in production environments.

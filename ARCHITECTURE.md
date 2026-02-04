@@ -1,128 +1,85 @@
 # BetChain — Architecture Notes
 
-This document describes the architectural decisions, state model, and lifecycle design
-principles used in the BetChain protocol and its frontend integration.
+This document explains the architectural decisions and design rationale behind the BetChain protocol and its frontend integration.
 
 ---
 
-## 🧱 Design Principles
+## Design Principles
 
+- Time as authority
 - Explicit lifecycle modeling
 - Minimal persistent storage
-- Deterministic and auditable behavior
-- Separation of concerns between logic, storage, and interface layers
+- Conservative UI exposure
 - Security-first assumptions
-- Frontend as a command interface, not a state mirror
 
 ---
 
-## 🔄 Lifecycle Model
+## Layered Architecture
 
-Each bet follows a strictly defined lifecycle:
+### Protocol Layer
 
-1. Created  
-2. Open  
-3. Resolved  
-4. Settled  
-5. Finalized  
+Responsibilities:
+- Define valid state transitions
+- Enforce lifecycle correctness
+- Guarantee fund safety
+- Remain oracle-agnostic
 
-State transitions are validated through **explicit guards** derived from protocol rules,
-rather than relying solely on stored enum values.
+Non-responsibilities:
+- Defining real-world truth
+- Result verification
+- Governance or dispute handling
 
 ---
 
-## 🧠 Logical State vs Stored State
+### Application Layer
 
-### Stored State
+Responsibilities:
+- Execute user-authorized actions
+- Respect protocol constraints
+- Avoid arbitrary decisions
 
-Stored state represents the **minimal set of data persisted on-chain**, such as:
-- Timestamps
-- Participation records
-- Resolution and settlement flags
+Non-responsibilities:
+- Resolving bets
+- Selecting winners
+- Overriding protocol logic
 
-This minimizes gas usage and reduces the attack surface.
+---
 
-### Logical State
+## Deadline Sovereignty
 
-Logical state is **derived at runtime** based on:
-- Current block timestamp
-- Stored flags
+The deadline is the primary authority for bet progression.
+
+State transitions are derived from time rather than user intent.
+
+---
+
+## Logical vs Stored State
+
+Stored state is intentionally minimal.
+
+Logical state is inferred from:
+- Block timestamps
 - Protocol invariants
 
-The effective state of a bet is therefore inferred, not constantly mutated.
+This prevents stale reads and inconsistent behavior.
 
 ---
 
-## 💤 Lazy State Transitions
+## Settlement as a Protocol Capability
 
-The protocol uses **lazy state evaluation**:
+Settlement exists at the protocol layer but is not surfaced by default.
 
-- State is reconciled only when required
-- Transitions are derived, not eagerly written
-- Avoids unnecessary storage writes
-- Prevents inconsistent intermediate states
+This allows future integrations such as:
+- Oracles
+- DAO-based resolution
+- External attestation mechanisms
 
-This approach is especially effective for time-based and multi-step lifecycles.
-
----
-
-## 🔁 Idempotent Lifecycle Actions
-
-Lifecycle-related functions are designed to be **idempotent**:
-
-- Repeated calls do not cause duplicated effects
-- State changes are applied only once
-- Subsequent calls safely short-circuit
-
-This enables:
-- Retry-safe execution
-- External automation
-- Robust handling of partial failures
+without modifying core lifecycle logic.
 
 ---
 
-## 🧩 Frontend Integration Model
+## Final Notes
 
-The frontend interacts with the protocol exclusively through **semantic actions**.
+The architecture prioritizes clarity, correctness, and extensibility.
 
-Key characteristics:
-- No frontend-managed lifecycle state
-- No duplicated transition logic
-- No optimistic assumptions
-
-The `BetContext` acts as:
-- A write-only gateway
-- A signer-bound execution layer
-- A normalization boundary for contract errors
-
-All lifecycle correctness remains enforced on-chain.
-
----
-
-## 🔐 Security Considerations
-
-- Explicit transition guards
-- No reliance on implicit state
-- Minimal surface for reentrancy
-- Deterministic execution paths
-- Frontend does not introduce additional trust assumptions
-
----
-
-## 🧪 Testing Philosophy
-
-Tests focus on:
-- Lifecycle correctness
-- Invalid transition rejection
-- Idempotent behavior
-- Edge-case resilience
-- Protection against repeated execution
-
----
-
-## 📌 Final Notes
-
-The architecture prioritizes **clarity, correctness, and auditability**.
-
-Both the protocol and the frontend are designed to reflect real-world smart contract
-engineering practices, avoiding state duplication, hidden assumptions, and UI-driven logic.
+This mirrors real-world DeFi protocol engineering practices.
