@@ -1,5 +1,23 @@
 "use client";
 
+/**
+ * AllBets - Bets listing page
+ *
+ * Client-side page responsible for fetching and displaying
+ * all bets created in the smart contract.
+ *
+ * Responsibilities:
+ * - Connect to the read-only contract instance
+ * - Retrieve total bet count
+ * - Fetch individual bet data and metadata
+ * - Compute visual status (OPEN, CLOSED, SETTLED)
+ * - Render bet cards ordered by most recent first
+ *
+ * This page performs asynchronous blockchain reads
+ * and aggregates on-chain + off-chain metadata before rendering.
+ */
+
+
 import React, { useEffect, useState } from "react";
 import { getReadOnlyContract } from "../../utils/web3Provider";
 import { getBetMetadata } from "../../services/metadataService";
