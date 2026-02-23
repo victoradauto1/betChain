@@ -8,8 +8,8 @@ const SEPOLIA_RPC =
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 
 /**
- * Read-only provider (RPC público)
- * Usado para leitura de dados (sem wallet)
+ * Read-only provider (public RPC)
+ * Used for reading data (no wallet required)
  */
 export async function getReadOnlyProvider() {
   console.log("[ReadOnlyProvider] RPC URL:", SEPOLIA_RPC);
@@ -34,7 +34,7 @@ export async function getReadOnlyProvider() {
 
 /**
  * Read-only contract instance
- * Conveniência para não ter que instanciar Contract manualmente
+ * Convenience helper to avoid manual Contract instantiation
  */
 export async function getReadOnlyContract() {
   if (!CONTRACT_ADDRESS) {
@@ -51,7 +51,7 @@ export async function getReadOnlyContract() {
 
 /**
  * Wallet provider (MetaMask)
- * Usado APENAS para escrita
+ * Used ONLY for write operations
  */
 export async function getWalletProvider() {
   if (typeof window === "undefined") {
