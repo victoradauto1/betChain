@@ -50,6 +50,7 @@ export default function BetCard({ bet, showDeadline = true, compact = false }) {
   };
 
   const statusInfo = getStatusInfo();
+  const isOpen = bet.isOpen || bet.status === "OPEN";
   const imageSrc = resolveImageUrl(bet.image);
 
   return (
@@ -62,7 +63,7 @@ export default function BetCard({ bet, showDeadline = true, compact = false }) {
           ${compact ? "p-2.5 h-[280px]" : "p-4 h-[420px]"}
         `}
       >
-        {/* IMAGE: 60% size when compact (192px -> 115px) */}
+        {/* IMAGE */}
         <div className={`${compact ? "h-[115px] mb-2" : "h-48 mb-3"} shrink-0`}>
           <img
             src={imageSrc}
@@ -75,7 +76,7 @@ export default function BetCard({ bet, showDeadline = true, compact = false }) {
           />
         </div>
 
-        {/* TITLE: proportionally smaller when compact */}
+        {/* TITLE */}
         <h2
           className={`
             font-semibold text-white overflow-hidden shrink-0
@@ -91,7 +92,7 @@ export default function BetCard({ bet, showDeadline = true, compact = false }) {
           {bet.title}
         </h2>
 
-        {/* CONTENT: proportional spacing and font size */}
+        {/* CONTENT */}
         <div
           className={`${
             compact ? "space-y-0.5 text-xs" : "space-y-1 text-sm"
@@ -138,10 +139,23 @@ export default function BetCard({ bet, showDeadline = true, compact = false }) {
           })()}
         </div>
 
-        {/* STATUS: proportionally smaller when compact */}
-        <p className={`shrink-0 ${compact ? "mt-2 text-xs" : "mt-3 text-sm"} font-semibold ${statusInfo.color}`}>
+        {/* STATUS */}
+        <p
+          className={`shrink-0 ${
+            compact ? "mt-2 text-xs" : "mt-3 text-sm"
+          } font-semibold ${statusInfo.color}`}
+        >
           {statusInfo.text}
         </p>
+
+        {/* MICRO CTA */}
+<p
+  className={`mt-auto pt-2 text-center ${
+    compact ? "text-xs" : "text-sm"
+  } text-white opacity-80`}
+>
+  {isOpen ? "(Click to BET!)" : "(Click to details)"}
+</p>
       </div>
     </Link>
   );
