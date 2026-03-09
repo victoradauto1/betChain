@@ -23,6 +23,17 @@ import { saveBetMetadata } from "../../services/metadataService";
 import ConfirmModal from "../../components/ConfirmModal";
 import ProcessingOverlay from "../../components/ProcessingOverlay";
 
+async function isValidImage(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+
+    img.src = url;
+  });
+}
+
 export default function CreateBet() {
   const router = useRouter();
   const { actions, isReady, connectWallet } = useBetChain();
@@ -81,13 +92,22 @@ export default function CreateBet() {
     setErrorMessage("");
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage("");
 
     if (!title.trim()) {
       setErrorMessage("Title is required.");
       return;
+    }
+
+    if (imageUrl.trim()) {
+      const validImage = await isValidImage(imageUrl.trim());
+
+      if (!validImage) {
+        setErrorMessage("Image URL is invalid or unreachable.");
+        return;
+      }
     }
 
     const filteredOptions = options.map(o => o.trim()).filter(Boolean);
