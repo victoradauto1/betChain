@@ -154,7 +154,7 @@ export default function BetCard({ bet, showDeadline = true, compact = false }) {
     compact ? "text-xs" : "text-sm"
   } text-white opacity-80`}
 >
-  {isOpen ? "(Click to BET!)" : "(Click to details)"}
+  {isOpen ? "CLICK TO BET" : "CLICK TO DETAILS"}
 </p>
       </div>
     </Link>
