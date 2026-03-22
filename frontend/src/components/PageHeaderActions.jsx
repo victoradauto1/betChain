@@ -12,9 +12,9 @@ export default function PageHeaderActions({
   const router = useRouter();
 
   return (
-    <div className="w-full max-w-6xl flex justify-between items-center mb-6 px-4">
+    <div className="w-full max-w-6xl flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 px-4 gap-4 sm:gap-0">
       {/* PAGE TITLE */}
-      <h2 className="text-2xl font-semibold">{title}</h2>
+      <h2 className="text-xl sm:text-2xl font-semibold">{title}</h2>
 
       {/* ORACLE (only if allowed) */}
       {!hideOracle && <OraclePrice />}
@@ -23,7 +23,7 @@ export default function PageHeaderActions({
       {action === "home" && (
         <button
           onClick={() => router.push("/createBet")}
-          className="bg-green-600 hover:bg-green-500 px-4 py-2 rounded-xl text-sm font-semibold"
+          className="bg-green-600 hover:bg-green-500 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold w-full sm:w-auto"
         >
           + Create Bet
         </button>

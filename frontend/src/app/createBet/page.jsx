@@ -210,7 +210,7 @@ export default function CreateBet() {
         <div className="absolute inset-0 bg-linear-to-b from-black via-black/80 to-transparent"></div>
       </div>
 
-      <div className="relative z-10 w-full max-w-2xl px-4 py-10">
+      <div className="relative z-10 w-full max-w-2xl px-4 py-6 md:py-10">
         <div className="w-full flex justify-between items-center mb-4 px-2">
           <h2 className="text-2xl font-semibold">Create Bet</h2>
           <Link href="/" className="text-gray-300 hover:text-white text-sm font-medium">
@@ -218,7 +218,7 @@ export default function CreateBet() {
           </Link>
         </div>
 
-        <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800 p-8 rounded-2xl shadow-xl">
+        <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800 p-4 sm:p-6 md:p-8 rounded-2xl shadow-xl">
           {errorMessage && (
             <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
               <p className="text-sm text-red-200">{errorMessage}</p>
@@ -258,10 +258,10 @@ export default function CreateBet() {
 
               <div className="space-y-3">
                 {options.map((opt, index) => (
-                  <div key={index} className="flex gap-3 items-center">
+                  <div key={index} className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-start sm:items-center">
                     <input
                       type="text"
-                      className="flex-1 p-3 rounded-lg bg-zinc-800 border border-zinc-700 text-white"
+                      className="w-full sm:flex-1 p-3 rounded-lg bg-zinc-800 border border-zinc-700 text-white"
                       placeholder={`Option ${index + 1}`}
                       value={opt}
                       onChange={(e) => handleOptionChange(index, e.target.value)}
@@ -272,7 +272,7 @@ export default function CreateBet() {
                       <button
                         type="button"
                         onClick={() => removeOption(index)}
-                        className="p-2 rounded-lg hover:bg-white/10"
+                        className="p-2 rounded-lg hover:bg-white/10 w-full sm:w-auto text-left sm:text-center text-red-400 sm:text-white"
                       >
                         Remove
                       </button>

@@ -93,7 +93,7 @@ export default function AllBets() {
   }, []);
 
   return (
-    <div className="min-h-screen text-white flex flex-col items-center px-6 py-10 relative overflow-hidden">
+    <div className="min-h-screen text-white flex flex-col items-center px-4 md:px-6 py-6 md:py-10 relative overflow-hidden">
       <div className="absolute inset-0 bg-gray-950">
         <div className="absolute inset-0 bg-[url('/images/stadiumBet.png')] bg-cover bg-center opacity-20 mix-blend-lighten grayscale" />
         <div className="absolute inset-0 bg-linear-to-b from-black via-black/80 to-transparent" />

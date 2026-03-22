@@ -7,7 +7,7 @@ export default function Footer() {
 
       {/* Upper section */}
       <div className="w-full py-6 flex flex-col items-center">
-        <div className="flex items-center gap-8">
+        <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8">
 
           <p className="text-sm">&copy; {currentYear} BetChain</p>
 
@@ -27,11 +27,11 @@ export default function Footer() {
       <div className="w-full h-px bg-white/10"></div>
 
       {/* Lower section */}
-      <div className="w-full py-10 px-6 bg-black/90 border-t border-white/5">
-        <div className="max-w-4xl mx-auto flex flex-col items-center gap-8">
+      <div className="w-full py-8 md:py-10 px-4 md:px-6 bg-black/90 border-t border-white/5">
+        <div className="max-w-4xl mx-auto flex flex-col items-center gap-6 md:gap-8">
 
           {/* Social icons */}
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap justify-center gap-4 md:gap-6">
 
             <a href="javascript:void(0)" className="hover:text-white transition">
               <svg width="26" height="26" fill="currentColor" viewBox="0 0 24 24">

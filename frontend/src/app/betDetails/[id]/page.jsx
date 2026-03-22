@@ -197,7 +197,7 @@ export default function BetDetails({ params }) {
   const resolvedImage = resolveImageUrl(bet.image);
 
   return (
-    <div className="min-h-screen text-white flex flex-col items-center px-6 py-10 relative overflow-hidden">
+    <div className="min-h-screen text-white flex flex-col items-center px-4 md:px-6 py-6 md:py-10 relative overflow-hidden">
       <div className="absolute inset-0 bg-gray-950">
         <div className="absolute inset-0 bg-[url('/images/stadiumBet.png')] bg-cover bg-center opacity-20 mix-blend-lighten grayscale"></div>
         <div className="absolute inset-0 bg-linear-to-b from-black via-black/80 to-transparent"></div>
@@ -206,7 +206,7 @@ export default function BetDetails({ params }) {
       <div className="relative z-10 w-full max-w-6xl">
         <PageHeaderActions title={`Bet Details #${bet.id}`} action="return" />
 
-        <div className="bg-gray-900/70 backdrop-blur-sm p-6 rounded-2xl shadow-xl border border-zinc-700 mt-4">
+        <div className="bg-gray-900/70 backdrop-blur-sm p-4 md:p-6 rounded-2xl shadow-xl border border-zinc-700 mt-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
             <div className="md:col-span-2 space-y-4">
               <div>
@@ -251,8 +251,8 @@ export default function BetDetails({ params }) {
 
                   return (
                     <div key={idx} className="space-y-2">
-                      <div className="flex justify-between items-center gap-4">
-                        <div className="flex-1">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
+                        <div className="w-full sm:flex-1">
                           <div className="flex justify-between mb-1">
                             <span className={`font-medium ${isWinner ? "text-green-400" : ""}`}>
                               {opt.name}
@@ -280,7 +280,7 @@ export default function BetDetails({ params }) {
                         {isOpen && (
                           <button
                             onClick={() => openBetModal(idx)}
-                            className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors whitespace-nowrap cursor-pointer"
+                            className="w-full sm:w-auto px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-colors whitespace-nowrap cursor-pointer mt-2 sm:mt-0"
                           >
                             Bet
                           </button>

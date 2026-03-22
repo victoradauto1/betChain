@@ -22,10 +22,10 @@ export default function Header() {
   }, []);
 
   return (
-    <div className="w-full flex justify-center pt-10">
+    <div className="w-full flex justify-center pt-6 md:pt-10">
       {" "}
       {/* keeps top spacing identical */}
-      <header className="w-full flex justify-between items-center max-w-6xl mb-10 px-6">
+      <header className="w-full flex justify-between items-center max-w-6xl mb-6 md:mb-10 px-4 md:px-6">
         {/* Title: clickable, links to home */}
         <Link href="/" className="hover:opacity-90 transition ">
           <PageTitle>BetChain</PageTitle>
@@ -37,10 +37,10 @@ export default function Header() {
             {/* Visible block (keeps the exact classes you had) */}
             <div
               onClick={() => setMenuOpen((s) => !s)}
-              className="flex flex-col text-right bg-gray-800/70 px-4 py-2 rounded-xl backdrop-blur-sm cursor-pointer"
+              className="flex flex-col text-right bg-gray-800/70 px-3 md:px-4 py-1.5 md:py-2 rounded-xl backdrop-blur-sm cursor-pointer"
             >
-              <span className="text-xs text-gray-300">Welcome</span>
-              <span className="text-sm font-semibold">
+              <span className="text-[10px] md:text-xs text-gray-300">Welcome</span>
+              <span className="text-xs md:text-sm font-semibold">
                 {account.slice(0, 6)}...{account.slice(-4)}
               </span>
             </div>
@@ -81,7 +81,7 @@ export default function Header() {
         ) : (
           <button
             onClick={connectWallet}
-            className="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-xl text-sm font-semibold"
+            className="bg-indigo-600 hover:bg-indigo-500 px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm font-semibold whitespace-nowrap"
           >
             Connect Wallet
           </button>
